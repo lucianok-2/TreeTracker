@@ -1,21 +1,13 @@
-// src/app/components/RecepcionForm.tsx
 'use client'
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import Modal from './Modal'
 
-interface RecepcionFormProps {
+interface ConsumoFormProps {
   isOpen: boolean
   onClose: () => void
 }
-
-const CERTS = [
-  'FSC 100%',
-  'FSC Mixto',
-  'FSC Controlled Wood',
-  'Material Controlado'
-]
 
 const PRODUCTOS = [
   { codigo: 'W1.1', nombre: 'Trozos de pinus radiata' },
@@ -24,24 +16,22 @@ const PRODUCTOS = [
   { codigo: 'W3.2', nombre: 'Aserrín pinus radiata' }
 ]
 
-export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
+export default function ConsumoForm({ isOpen, onClose }: ConsumoFormProps) {
   const [formData, setFormData] = useState({
     fecha: '',
     producto: PRODUCTOS[0].codigo,
-    proveedor: '',
-    num_guia: '',
     volumen: '',
-    certificacion: CERTS[0]
+    descripcion: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    setError('') // Limpiar error al cambiar datos
+    setError('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,7 +41,7 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
 
     try {
       // Validar datos
-      if (!formData.fecha || !formData.proveedor || !formData.num_guia || !formData.volumen) {
+      if (!formData.fecha || !formData.volumen) {
         throw new Error('Por favor completa todos los campos requeridos')
       }
 
@@ -69,16 +59,14 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
 
       // Insertar en Supabase
       const { data, error: supabaseError } = await supabase
-        .from('recepciones')
+        .from('consumos')
         .insert([
           {
             user_id: user.id,
-            fecha_recepcion: formData.fecha,
+            fecha_consumo: formData.fecha,
             producto_codigo: formData.producto,
-            proveedor: formData.proveedor,
-            num_guia: formData.num_guia,
             volumen_m3: volumenNumerico,
-            certificacion: formData.certificacion
+            descripcion: formData.descripcion || null
           }
         ])
         .select()
@@ -88,24 +76,22 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
         throw new Error(`Error al guardar: ${supabaseError.message}`)
       }
 
-      console.log('Recepción guardada exitosamente:', data)
+      console.log('Consumo guardado exitosamente:', data)
       
       // Limpiar formulario y cerrar
       setFormData({
         fecha: '',
         producto: PRODUCTOS[0].codigo,
-        proveedor: '',
-        num_guia: '',
         volumen: '',
-        certificacion: CERTS[0]
+        descripcion: ''
       })
       onClose()
       
       // Mostrar mensaje de éxito
-      alert('Recepción guardada exitosamente')
+      alert('Consumo registrado exitosamente')
       
     } catch (err) {
-      console.error('Error al guardar recepción:', err)
+      console.error('Error al guardar consumo:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setLoading(false)
@@ -113,7 +99,7 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Añadir Recepción">
+    <Modal isOpen={isOpen} onClose={onClose} title="Registrar Consumo">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -123,7 +109,7 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
         
         <div>
           <label htmlFor="fecha" className="block mb-2 text-gray-700 font-medium">
-            Fecha de Recepción
+            Fecha de Consumo
           </label>
           <input
             type="date"
@@ -143,7 +129,7 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
 
         <div>
           <label htmlFor="producto" className="block mb-2 text-gray-700 font-medium">
-            Producto
+            Producto Consumido
           </label>
           <select
             id="producto"
@@ -164,52 +150,10 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
             ))}
           </select>
         </div>
-
-        <div>
-          <label htmlFor="proveedor" className="block mb-2 text-gray-700 font-medium">
-            Proveedor
-          </label>
-          <input
-            type="text"
-            id="proveedor"
-            name="proveedor"
-            value={formData.proveedor}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            required
-            placeholder="Ej: Forestal Los Pinos SPA"
-            disabled={loading}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="num_guia" className="block mb-2 text-gray-700 font-medium">
-            Número de Guía
-          </label>
-          <input
-            type="text"
-            id="num_guia"
-            name="num_guia"
-            value={formData.num_guia}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            required
-            placeholder="Ej: GR-2025-001"
-            disabled={loading}
-          />
-        </div>
         
         <div>
           <label htmlFor="volumen" className="block mb-2 text-gray-700 font-medium">
-            Volumen (m³)
+            Volumen Consumido (m³)
           </label>
           <input
             type="number"
@@ -225,33 +169,29 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
             required
             step="0.001"
             min="0"
-            placeholder="Ej: 15.500"
+            placeholder="Ej: 3.443"
             disabled={loading}
           />
         </div>
-        
+
         <div>
-          <label htmlFor="certificacion" className="block mb-2 text-gray-700 font-medium">
-            Certificación
+          <label htmlFor="descripcion" className="block mb-2 text-gray-700 font-medium">
+            Descripción (Opcional)
           </label>
-          <select
-            id="certificacion"
-            name="certificacion"
-            value={formData.certificacion}
+          <textarea
+            id="descripcion"
+            name="descripcion"
+            value={formData.descripcion}
             onChange={handleChange}
             className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             style={{ 
               borderColor: 'var(--light-brown)',
               backgroundColor: 'white'
             }}
+            rows={3}
+            placeholder="Descripción del consumo..."
             disabled={loading}
-          >
-            {CERTS.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         
         <div className="flex justify-end space-x-4 pt-4">

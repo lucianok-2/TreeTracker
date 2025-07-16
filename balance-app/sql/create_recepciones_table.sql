@@ -1,6 +1,7 @@
--- Crear tabla recepciones para TreeTracker
+-- Crear tabla recepciones para TreeTracker con autenticación
 CREATE TABLE IF NOT EXISTS recepciones (
   id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   fecha_recepcion DATE NOT NULL,
   proveedor TEXT NOT NULL,
   num_guia TEXT NOT NULL,
@@ -11,9 +12,29 @@ CREATE TABLE IF NOT EXISTS recepciones (
 );
 
 -- Crear índices para mejorar el rendimiento
+CREATE INDEX IF NOT EXISTS idx_recepciones_user_id ON recepciones(user_id);
 CREATE INDEX IF NOT EXISTS idx_recepciones_fecha ON recepciones(fecha_recepcion);
 CREATE INDEX IF NOT EXISTS idx_recepciones_certificacion ON recepciones(certificacion);
 CREATE INDEX IF NOT EXISTS idx_recepciones_proveedor ON recepciones(proveedor);
+
+-- Habilitar RLS (Row Level Security)
+ALTER TABLE recepciones ENABLE ROW LEVEL SECURITY;
+
+-- Crear política para que los usuarios solo vean sus propios registros
+CREATE POLICY "Users can view own recepciones" ON recepciones
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- Crear política para que los usuarios solo puedan insertar sus propios registros
+CREATE POLICY "Users can insert own recepciones" ON recepciones
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Crear política para que los usuarios solo puedan actualizar sus propios registros
+CREATE POLICY "Users can update own recepciones" ON recepciones
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- Crear política para que los usuarios solo puedan eliminar sus propios registros
+CREATE POLICY "Users can delete own recepciones" ON recepciones
+    FOR DELETE USING (auth.uid() = user_id);
 
 -- Crear función para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -31,12 +52,5 @@ CREATE TRIGGER update_recepciones_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Insertar datos de ejemplo (opcional)
-INSERT INTO recepciones (fecha_recepcion, proveedor, num_guia, volumen_m3, certificacion) VALUES
-('2025-01-15', 'Forestal Los Pinos SPA', 'GR-2025-001', 25.500, 'FSC 100%'),
-('2025-01-14', 'Maderas del Sur LTDA', 'GR-2025-002', 18.750, 'FSC Mixto'),
-('2025-01-13', 'Bosques Nativos SPA', 'GR-2025-003', 32.100, 'Material Controlado')
-ON CONFLICT DO NOTHING;
-
 -- Verificar que la tabla se creó correctamente
-SELECT 'Tabla recepciones creada exitosamente' as status;
+SELECT 'Tabla recepciones con autenticación creada exitosamente' as status;

@@ -1,21 +1,13 @@
-// src/app/components/RecepcionForm.tsx
 'use client'
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import Modal from './Modal'
 
-interface RecepcionFormProps {
+interface StockInicialFormProps {
   isOpen: boolean
   onClose: () => void
 }
-
-const CERTS = [
-  'FSC 100%',
-  'FSC Mixto',
-  'FSC Controlled Wood',
-  'Material Controlado'
-]
 
 const PRODUCTOS = [
   { codigo: 'W1.1', nombre: 'Trozos de pinus radiata' },
@@ -24,14 +16,27 @@ const PRODUCTOS = [
   { codigo: 'W3.2', nombre: 'Aserrín pinus radiata' }
 ]
 
-export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
+const MESES = [
+  { numero: 1, nombre: 'Enero' },
+  { numero: 2, nombre: 'Febrero' },
+  { numero: 3, nombre: 'Marzo' },
+  { numero: 4, nombre: 'Abril' },
+  { numero: 5, nombre: 'Mayo' },
+  { numero: 6, nombre: 'Junio' },
+  { numero: 7, nombre: 'Julio' },
+  { numero: 8, nombre: 'Agosto' },
+  { numero: 9, nombre: 'Septiembre' },
+  { numero: 10, nombre: 'Octubre' },
+  { numero: 11, nombre: 'Noviembre' },
+  { numero: 12, nombre: 'Diciembre' }
+]
+
+export default function StockInicialForm({ isOpen, onClose }: StockInicialFormProps) {
   const [formData, setFormData] = useState({
-    fecha: '',
+    año: new Date().getFullYear(),
+    mes: new Date().getMonth() + 1,
     producto: PRODUCTOS[0].codigo,
-    proveedor: '',
-    num_guia: '',
-    volumen: '',
-    certificacion: CERTS[0]
+    volumen: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -40,8 +45,8 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    setError('') // Limpiar error al cambiar datos
+    setFormData(prev => ({ ...prev, [name]: name === 'año' || name === 'mes' ? parseInt(value) : value }))
+    setError('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,13 +56,13 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
 
     try {
       // Validar datos
-      if (!formData.fecha || !formData.proveedor || !formData.num_guia || !formData.volumen) {
-        throw new Error('Por favor completa todos los campos requeridos')
+      if (!formData.volumen) {
+        throw new Error('Por favor ingresa el volumen')
       }
 
       const volumenNumerico = parseFloat(formData.volumen)
-      if (isNaN(volumenNumerico) || volumenNumerico <= 0) {
-        throw new Error('El volumen debe ser un número positivo')
+      if (isNaN(volumenNumerico) || volumenNumerico < 0) {
+        throw new Error('El volumen debe ser un número positivo o cero')
       }
 
       // Obtener el usuario actual
@@ -67,20 +72,20 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
         throw new Error('Usuario no autenticado')
       }
 
-      // Insertar en Supabase
+      // Insertar o actualizar en Supabase (UPSERT)
       const { data, error: supabaseError } = await supabase
-        .from('recepciones')
-        .insert([
+        .from('stock_inicial')
+        .upsert([
           {
             user_id: user.id,
-            fecha_recepcion: formData.fecha,
+            año: formData.año,
+            mes: formData.mes,
             producto_codigo: formData.producto,
-            proveedor: formData.proveedor,
-            num_guia: formData.num_guia,
-            volumen_m3: volumenNumerico,
-            certificacion: formData.certificacion
+            volumen_m3: volumenNumerico
           }
-        ])
+        ], {
+          onConflict: 'user_id,año,mes,producto_codigo'
+        })
         .select()
 
       if (supabaseError) {
@@ -88,24 +93,22 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
         throw new Error(`Error al guardar: ${supabaseError.message}`)
       }
 
-      console.log('Recepción guardada exitosamente:', data)
+      console.log('Stock inicial guardado exitosamente:', data)
       
       // Limpiar formulario y cerrar
       setFormData({
-        fecha: '',
+        año: new Date().getFullYear(),
+        mes: new Date().getMonth() + 1,
         producto: PRODUCTOS[0].codigo,
-        proveedor: '',
-        num_guia: '',
-        volumen: '',
-        certificacion: CERTS[0]
+        volumen: ''
       })
       onClose()
       
       // Mostrar mensaje de éxito
-      alert('Recepción guardada exitosamente')
+      alert('Stock inicial guardado exitosamente')
       
     } catch (err) {
-      console.error('Error al guardar recepción:', err)
+      console.error('Error al guardar stock inicial:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setLoading(false)
@@ -113,7 +116,7 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Añadir Recepción">
+    <Modal isOpen={isOpen} onClose={onClose} title="Configurar Stock Inicial">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -121,24 +124,54 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
           </div>
         )}
         
-        <div>
-          <label htmlFor="fecha" className="block mb-2 text-gray-700 font-medium">
-            Fecha de Recepción
-          </label>
-          <input
-            type="date"
-            id="fecha"
-            name="fecha"
-            value={formData.fecha}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            required
-            disabled={loading}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="año" className="block mb-2 text-gray-700 font-medium">
+              Año
+            </label>
+            <select
+              id="año"
+              name="año"
+              value={formData.año}
+              onChange={handleChange}
+              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              style={{ 
+                borderColor: 'var(--light-brown)',
+                backgroundColor: 'white'
+              }}
+              disabled={loading}
+            >
+              {[2023, 2024, 2025, 2026, 2027].map(año => (
+                <option key={año} value={año}>
+                  {año}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="mes" className="block mb-2 text-gray-700 font-medium">
+              Mes
+            </label>
+            <select
+              id="mes"
+              name="mes"
+              value={formData.mes}
+              onChange={handleChange}
+              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              style={{ 
+                borderColor: 'var(--light-brown)',
+                backgroundColor: 'white'
+              }}
+              disabled={loading}
+            >
+              {MESES.map(mes => (
+                <option key={mes.numero} value={mes.numero}>
+                  {mes.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>
@@ -164,52 +197,10 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
             ))}
           </select>
         </div>
-
-        <div>
-          <label htmlFor="proveedor" className="block mb-2 text-gray-700 font-medium">
-            Proveedor
-          </label>
-          <input
-            type="text"
-            id="proveedor"
-            name="proveedor"
-            value={formData.proveedor}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            required
-            placeholder="Ej: Forestal Los Pinos SPA"
-            disabled={loading}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="num_guia" className="block mb-2 text-gray-700 font-medium">
-            Número de Guía
-          </label>
-          <input
-            type="text"
-            id="num_guia"
-            name="num_guia"
-            value={formData.num_guia}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            required
-            placeholder="Ej: GR-2025-001"
-            disabled={loading}
-          />
-        </div>
         
         <div>
           <label htmlFor="volumen" className="block mb-2 text-gray-700 font-medium">
-            Volumen (m³)
+            Volumen Inicial (m³)
           </label>
           <input
             type="number"
@@ -225,33 +216,9 @@ export default function RecepcionForm({ isOpen, onClose }: RecepcionFormProps) {
             required
             step="0.001"
             min="0"
-            placeholder="Ej: 15.500"
+            placeholder="Ej: 5.676"
             disabled={loading}
           />
-        </div>
-        
-        <div>
-          <label htmlFor="certificacion" className="block mb-2 text-gray-700 font-medium">
-            Certificación
-          </label>
-          <select
-            id="certificacion"
-            name="certificacion"
-            value={formData.certificacion}
-            onChange={handleChange}
-            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            style={{ 
-              borderColor: 'var(--light-brown)',
-              backgroundColor: 'white'
-            }}
-            disabled={loading}
-          >
-            {CERTS.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </div>
         
         <div className="flex justify-end space-x-4 pt-4">

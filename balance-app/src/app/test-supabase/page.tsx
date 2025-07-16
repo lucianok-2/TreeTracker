@@ -63,19 +63,38 @@ export default function TestSupabasePage() {
 
   const createRecepcionesTable = async () => {
     try {
-      const { error } = await supabase.rpc('create_recepciones_table')
-      
+      alert(`Para solucionar el problema de la columna 'producto_codigo', ejecuta uno de estos scripts en tu panel de Supabase:
+
+OPCIÓN 1 - Actualizar tabla existente (recomendado):
+Ejecuta el archivo: balance-app/sql/update_recepciones_table.sql
+
+OPCIÓN 2 - Recrear tabla (elimina datos existentes):
+Ejecuta el archivo: balance-app/sql/recreate_recepciones_table.sql
+
+OPCIÓN 3 - Sistema completo:
+Ejecuta el archivo: balance-app/sql/create_all_tables.sql`)
+    } catch (err) {
+      console.error('Error:', err)
+    }
+  }
+
+  const checkTableStructure = async () => {
+    try {
+      // Usar una consulta SQL directa para verificar la estructura
+      const { data, error } = await supabase
+        .rpc('get_table_structure', { table_name: 'recepciones' })
+
       if (error) {
-        // Si no existe la función, intentamos crear la tabla directamente
-        console.log('Intentando crear tabla recepciones...')
-        alert('Para crear la tabla, ve a tu panel de Supabase y ejecuta este SQL:\n\nCREATE TABLE recepciones (\n  id SERIAL PRIMARY KEY,\n  fecha DATE NOT NULL,\n  certificacion TEXT NOT NULL,\n  volumen DECIMAL(10,3) NOT NULL,\n  producto TEXT NOT NULL,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);')
+        console.error('Error checking table structure:', error)
+        // Fallback: mostrar información básica
+        alert('No se pudo verificar la estructura. Ejecuta el SQL de actualización.')
       } else {
-        alert('Tabla recepciones creada exitosamente')
-        testConnection()
+        console.log('Estructura de tabla recepciones:', data)
+        alert('Revisa la consola para ver la estructura de la tabla')
       }
     } catch (err) {
-      console.error('Error creando tabla:', err)
-      alert('Error al crear tabla. Ve al panel de Supabase para crearla manualmente.')
+      console.error('Error:', err)
+      alert('Para verificar la estructura, ejecuta este SQL en Supabase:\n\nSELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = \'recepciones\' ORDER BY ordinal_position;')
     }
   }
 
@@ -84,9 +103,9 @@ export default function TestSupabasePage() {
       {/* Header con logo */}
       <div className="treetracker-header p-6">
         <div className="flex items-center space-x-4">
-          <img 
-            src="/treetracker-logo.svg" 
-            alt="TreeTracker Logo" 
+          <img
+            src="/treetracker-logo.svg"
+            alt="TreeTracker Logo"
             className="h-12 w-auto"
           />
           <div>
@@ -123,7 +142,7 @@ export default function TestSupabasePage() {
             ) : (
               <p className="text-gray-700">No se encontraron tablas</p>
             )}
-            
+
             {!tables.includes('recepciones') && (
               <div className="mt-4">
                 <button
@@ -138,46 +157,61 @@ export default function TestSupabasePage() {
 
           <div className="treetracker-card p-6">
             <h2 className="text-lg font-semibold mb-3 text-gray-800">Recepciones Guardadas</h2>
-          {recepciones.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--dark-green)' }}>
-                    <th className="px-4 py-2 text-left text-white font-semibold">ID</th>
-                    <th className="px-4 py-2 text-left text-white font-semibold">Fecha</th>
-                    <th className="px-4 py-2 text-left text-white font-semibold">Proveedor</th>
-                    <th className="px-4 py-2 text-left text-white font-semibold">Núm. Guía</th>
-                    <th className="px-4 py-2 text-left text-white font-semibold">Volumen (m³)</th>
-                    <th className="px-4 py-2 text-left text-white font-semibold">Certificación</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recepciones.map(recepcion => (
-                    <tr key={recepcion.id} className="border-b hover:bg-gray-50" style={{ borderColor: 'var(--light-brown)' }}>
-                      <td className="px-4 py-2 text-gray-700">{recepcion.id}</td>
-                      <td className="px-4 py-2 text-gray-700">{recepcion.fecha_recepcion}</td>
-                      <td className="px-4 py-2 text-gray-700">{recepcion.proveedor}</td>
-                      <td className="px-4 py-2 text-gray-700">{recepcion.num_guia}</td>
-                      <td className="px-4 py-2 text-gray-700 text-right">{recepcion.volumen_m3}</td>
-                      <td className="px-4 py-2 text-gray-700">{recepcion.certificacion}</td>
+            {recepciones.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto">
+                  <thead>
+                    <tr style={{ backgroundColor: 'var(--dark-green)' }}>
+                      <th className="px-4 py-2 text-left text-white font-semibold">ID</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Usuario</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Fecha</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Proveedor</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Núm. Guía</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Volumen (m³)</th>
+                      <th className="px-4 py-2 text-left text-white font-semibold">Certificación</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p>No hay recepciones guardadas</p>
-          )}
-        </div>
+                  </thead>
+                  <tbody>
+                    {recepciones.map(recepcion => (
+                      <tr key={recepcion.id} className="border-b hover:bg-gray-50" style={{ borderColor: 'var(--light-brown)' }}>
+                        <td className="px-4 py-2 text-gray-700">{recepcion.id}</td>
+                        <td className="px-4 py-2 text-gray-700 text-xs">{recepcion.user_id?.substring(0, 8)}...</td>
+                        <td className="px-4 py-2 text-gray-700">{recepcion.fecha_recepcion}</td>
+                        <td className="px-4 py-2 text-gray-700">{recepcion.proveedor}</td>
+                        <td className="px-4 py-2 text-gray-700">{recepcion.num_guia}</td>
+                        <td className="px-4 py-2 text-gray-700 text-right">{recepcion.volumen_m3}</td>
+                        <td className="px-4 py-2 text-gray-700">{recepcion.certificacion}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p>No hay recepciones guardadas</p>
+            )}
+          </div>
 
           <div className="treetracker-card p-6">
             <h2 className="text-lg font-semibold mb-3 text-gray-800">Acciones</h2>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={testConnection}
                 className="treetracker-button-primary px-6 py-2 rounded-lg font-medium"
               >
                 Probar Conexión
+              </button>
+              <button
+                onClick={checkTableStructure}
+                className="treetracker-button-secondary px-6 py-2 rounded-lg font-medium"
+              >
+                Verificar Estructura
+              </button>
+              <button
+                onClick={createRecepcionesTable}
+                className="px-6 py-2 rounded-lg font-medium text-white"
+                style={{ backgroundColor: 'var(--dark-brown)' }}
+              >
+                Instrucciones SQL
               </button>
               <a
                 href="/dashboard"
