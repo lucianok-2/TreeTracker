@@ -26,7 +26,7 @@ export default function Navbar() {
             <h1 className="text-2xl font-bold text-gray-800">
               Balance de Materiales
             </h1>
-            <p className="text-lg text-gray-600">Los Castaños SPA</p>
+            
           </div>
         </div>
         
