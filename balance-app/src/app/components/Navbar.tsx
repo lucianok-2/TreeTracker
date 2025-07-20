@@ -17,19 +17,19 @@ export default function Navbar() {
     <div className="treetracker-header p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <img 
-            src="/treetracker-logo.svg" 
-            alt="TreeTracker Logo" 
+          <img
+            src="/treetracker-logo.svg"
+            alt="TreeTracker Logo"
             className="h-12 w-auto"
           />
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
               Balance de Materiales
             </h1>
-            
+
           </div>
         </div>
-        
+
         {user && (
           <div className="flex items-center space-x-4">
             <div className="text-right">

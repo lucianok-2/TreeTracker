@@ -9,6 +9,8 @@ import VentaForm from '../components/VentaForm'
 import StockInicialForm from '../components/StockInicialForm'
 import ConsumoForm from '../components/ConsumoForm'
 import Navbar from '../components/Navbar'
+import UserFunctionsManager from '../components/UserFunctionsManager'
+import DocumentProcessor from '../components/DocumentProcessor'
 import withAuth from '../components/with-auth'
 
 const MESES = [
@@ -54,11 +56,22 @@ interface DashboardData {
 function DashboardPage() {
   const { user } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
+
+  // Función para formatear números: 1 decimal, pero si es entero no mostrar .0
+  const formatNumber = (value: number | undefined | null): string => {
+    if (!value || value === 0) return ''
+    // Si es un número entero, no mostrar decimales
+    if (value % 1 === 0) return value.toString()
+    // Si tiene decimales, mostrar 1 decimal
+    return value.toFixed(1)
+  }
   const [isRecepcionOpen, setRecepcionOpen] = useState(false)
   const [isProduccionOpen, setProduccionOpen] = useState(false)
   const [isVentaOpen, setVentaOpen] = useState(false)
   const [isStockInicialOpen, setStockInicialOpen] = useState(false)
   const [isConsumoOpen, setConsumoOpen] = useState(false)
+  const [isFunctionsManagerOpen, setFunctionsManagerOpen] = useState(false)
+  const [isDocumentProcessorOpen, setDocumentProcessorOpen] = useState(false)
   const [data, setData] = useState<DashboardData>({
     stockInicial: {},
     ingresos: {},
@@ -154,7 +167,7 @@ function DashboardPage() {
     }
 
     // Función para procesar los datos y organizarlos por mes
-    const processDataForDashboard = (rawData: any) => {
+    const processDataForDashboard = (rawData: unknown) => {
       const processedData: DashboardData = {
         stockInicial: {},
         ingresos: {},
@@ -178,7 +191,7 @@ function DashboardPage() {
       }
 
       // Procesar stock inicial
-      rawData.stock.forEach((item: any) => {
+      rawData.stock.forEach((item: unknown) => {
         const mesNombre = MESES[item.mes - 1]
         if (!processedData.stockInicial[item.producto_codigo]) {
           processedData.stockInicial[item.producto_codigo] = {}
@@ -187,7 +200,7 @@ function DashboardPage() {
       })
 
       // Procesar recepciones (ingresos)
-      rawData.recepciones.forEach((item: any) => {
+      rawData.recepciones.forEach((item: unknown) => {
         const fecha = new Date(item.fecha_recepcion)
         const mesNombre = MESES[fecha.getMonth()]
         const cert = item.certificacion
@@ -202,9 +215,22 @@ function DashboardPage() {
       })
 
       // Procesar consumos
-      rawData.consumos.forEach((item: any) => {
-        const fecha = new Date(item.fecha_consumo)
-        const mesNombre = MESES[fecha.getMonth()]
+      rawData.consumos.forEach((item: unknown) => {
+        // Usar una forma más robusta de procesar la fecha
+        const fechaStr = item.fecha_consumo
+        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
+        const mesNombre = MESES[mesNumero]
+
+        console.log('Procesando consumo:', {
+          fecha_original: item.fecha_consumo,
+          año: año,
+          mes: mes,
+          dia: dia,
+          mes_numero: mesNumero,
+          mes_nombre: mesNombre,
+          volumen: item.volumen_m3
+        })
 
         if (!processedData.consumo[mesNombre]) {
           processedData.consumo[mesNombre] = 0
@@ -213,7 +239,7 @@ function DashboardPage() {
       })
 
       // Procesar producción
-      rawData.produccion.forEach((item: any) => {
+      rawData.produccion.forEach((item: unknown) => {
         const fecha = new Date(item.fecha_produccion)
         const mesNombre = MESES[fecha.getMonth()]
 
@@ -256,42 +282,145 @@ function DashboardPage() {
       })
 
       // Procesar ventas
-      rawData.ventas.forEach((item: unknown) => {
-        const fecha = new Date(item.fecha_venta)
-        const mesNombre = MESES[fecha.getMonth()]
-        const cert = item.certificacion
+      if (rawData.ventas && Array.isArray(rawData.ventas)) {
+        rawData.ventas.forEach((item: unknown) => {
+          const fecha = new Date(item.fecha_venta)
+          const mesNombre = MESES[fecha.getMonth()]
+          const cert = item.certificacion
 
-        // Ventas de madera (W5.2)
-        if (item.producto_codigo === 'W5.2') {
-          if (!processedData.ventasMadera[cert]) {
-            processedData.ventasMadera[cert] = {}
+          // Ventas de madera (W5.2)
+          if (item.producto_codigo === 'W5.2') {
+            if (!processedData.ventasMadera[cert]) {
+              processedData.ventasMadera[cert] = {}
+            }
+            if (!processedData.ventasMadera[cert][mesNombre]) {
+              processedData.ventasMadera[cert][mesNombre] = 0
+            }
+            processedData.ventasMadera[cert][mesNombre] += parseFloat(item.volumen_m3)
           }
-          if (!processedData.ventasMadera[cert][mesNombre]) {
-            processedData.ventasMadera[cert][mesNombre] = 0
+
+          // Ventas de astillas (W3.1)
+          if (item.producto_codigo === 'W3.1') {
+            if (!processedData.ventasAstillas[cert]) {
+              processedData.ventasAstillas[cert] = {}
+            }
+            if (!processedData.ventasAstillas[cert][mesNombre]) {
+              processedData.ventasAstillas[cert][mesNombre] = 0
+            }
+            processedData.ventasAstillas[cert][mesNombre] += parseFloat(item.volumen_m3)
           }
-          processedData.ventasMadera[cert][mesNombre] += parseFloat(item.volumen_m3)
+
+          // Ventas de aserrín (W3.2)
+          if (item.producto_codigo === 'W3.2') {
+            if (!processedData.ventasAserrin[cert]) {
+              processedData.ventasAserrin[cert] = {}
+            }
+            if (!processedData.ventasAserrin[cert][mesNombre]) {
+              processedData.ventasAserrin[cert][mesNombre] = 0
+            }
+            processedData.ventasAserrin[cert][mesNombre] += parseFloat(item.volumen_m3)
+          }
+        })
+      }
+
+      // Calcular Stock Inicial automático y Stock Final
+      // El stock inicial de cada mes debe ser el stock final del mes anterior
+      ['W1.1', 'W5.2', 'W3.1', 'W3.2'].forEach(producto => {
+        let stockAnterior = 0
+
+        MESES.forEach((mes, index) => {
+          // Asegurar que la estructura existe
+          if (!processedData.stockInicial[producto]) {
+            processedData.stockInicial[producto] = {}
+          }
+          if (!processedData.stockFinal[producto]) {
+            processedData.stockFinal[producto] = {}
+          }
+
+          // Stock inicial: usar el configurado manualmente o el stock final del mes anterior
+          let stockInicial = processedData.stockInicial[producto][mes] || 0
+
+          // Si no hay stock inicial configurado y hay stock anterior, usar el stock anterior
+          if (stockInicial === 0 && stockAnterior > 0) {
+            stockInicial = stockAnterior
+            // Actualizar el stock inicial calculado
+            if (!processedData.stockInicial[producto]) {
+              processedData.stockInicial[producto] = {}
+            }
+            processedData.stockInicial[producto][mes] = stockInicial
+          }
+
+          // Calcular recepciones para este producto en este mes
+          let totalRecepciones = 0
+          if (producto === 'W1.1') {
+            // Para W1.1, sumar todas las recepciones
+            Object.keys(processedData.ingresos).forEach(cert => {
+              totalRecepciones += processedData.ingresos[cert]?.[mes] || 0
+            })
+          }
+
+          // Calcular producción para productos terminados
+          let produccionMes = 0
+          if (producto === 'W5.2') {
+            produccionMes = processedData.produccionMadera[mes] || 0
+          } else if (producto === 'W3.1') {
+            produccionMes = processedData.produccionAstillas[mes] || 0
+          } else if (producto === 'W3.2') {
+            produccionMes = processedData.produccionAserrin[mes] || 0
+          }
+
+          // Calcular consumo (principalmente afecta a W1.1)
+          const consumoMes = producto === 'W1.1' ? (processedData.consumo[mes] || 0) : 0
+
+          // Calcular ventas para productos terminados
+          let ventasMes = 0
+          if (producto === 'W5.2') {
+            Object.keys(processedData.ventasMadera).forEach(cert => {
+              ventasMes += processedData.ventasMadera[cert]?.[mes] || 0
+            })
+          } else if (producto === 'W3.1') {
+            Object.keys(processedData.ventasAstillas).forEach(cert => {
+              ventasMes += processedData.ventasAstillas[cert]?.[mes] || 0
+            })
+          } else if (producto === 'W3.2') {
+            Object.keys(processedData.ventasAserrin).forEach(cert => {
+              ventasMes += processedData.ventasAserrin[cert]?.[mes] || 0
+            })
+          }
+
+          // Calcular stock final: Stock Inicial + Recepción - Consumo
+          const stockFinal = stockInicial + totalRecepciones - consumoMes
+
+          // Guardar stock final
+          if (!processedData.stockFinal[producto]) {
+            processedData.stockFinal[producto] = {}
+          }
+          processedData.stockFinal[producto][mes] = stockFinal
+
+          // Actualizar stock anterior para el próximo mes
+          stockAnterior = stockFinal
+        })
+      })
+
+      // Calcular factores de rendimiento automáticamente
+      // Factor de Rendimiento = (Producción / Consumo) * 100
+      MESES.forEach(mes => {
+        // Factor de rendimiento para madera
+        if (processedData.produccionMadera[mes] && processedData.consumo[mes]) {
+          const factor = (processedData.produccionMadera[mes] / processedData.consumo[mes]) * 100
+          processedData.rendimientoMadera[mes] = factor
         }
 
-        // Ventas de astillas (W3.1)
-        if (item.producto_codigo === 'W3.1') {
-          if (!processedData.ventasAstillas[cert]) {
-            processedData.ventasAstillas[cert] = {}
-          }
-          if (!processedData.ventasAstillas[cert][mesNombre]) {
-            processedData.ventasAstillas[cert][mesNombre] = 0
-          }
-          processedData.ventasAstillas[cert][mesNombre] += parseFloat(item.volumen_m3)
+        // Factor de rendimiento para astillas
+        if (processedData.produccionAstillas[mes] && processedData.consumo[mes]) {
+          const factor = (processedData.produccionAstillas[mes] / processedData.consumo[mes]) * 100
+          processedData.rendimientoAstillas[mes] = factor
         }
 
-        // Ventas de aserrín (W3.2)
-        if (item.producto_codigo === 'W3.2') {
-          if (!processedData.ventasAserrin[cert]) {
-            processedData.ventasAserrin[cert] = {}
-          }
-          if (!processedData.ventasAserrin[cert][mesNombre]) {
-            processedData.ventasAserrin[cert][mesNombre] = 0
-          }
-          processedData.ventasAserrin[cert][mesNombre] += parseFloat(item.volumen_m3)
+        // Factor de rendimiento para aserrín
+        if (processedData.produccionAserrin[mes] && processedData.consumo[mes]) {
+          const factor = (processedData.produccionAserrin[mes] / processedData.consumo[mes]) * 100
+          processedData.rendimientoAserrin[mes] = factor
         }
       })
 
@@ -358,6 +487,19 @@ function DashboardPage() {
               >
                 Venta
               </button>
+              <div className="border-l border-gray-300 mx-2 h-8"></div>
+              <button
+                onClick={() => setFunctionsManagerOpen(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                Gestionar Funciones
+              </button>
+              <button
+                onClick={() => setDocumentProcessorOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                Procesar Documentos
+              </button>
             </div>
           </div>
         </div>
@@ -396,7 +538,7 @@ function DashboardPage() {
                 </td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockInicial['W1.1']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockInicial['W1.1']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -417,7 +559,7 @@ function DashboardPage() {
                   <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>{cert}</td>
                   {MESES.map(m => (
                     <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                      {data.ingresos[cert]?.[m]?.toFixed(3) ?? '0.000'}
+                      {formatNumber(data.ingresos[cert]?.[m])}
                     </td>
                   ))}
                 </tr>
@@ -430,7 +572,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockFinal['W1.1']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockFinal['W1.1']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -442,7 +584,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.consumo[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.consumo[m])}
                   </td>
                 ))}
               </tr>
@@ -454,7 +596,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.produccionMadera[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.produccionMadera[m])}
                   </td>
                 ))}
               </tr>
@@ -466,7 +608,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>%</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.rendimientoMadera[m]?.toFixed(1) ?? '0.0'}
+                    {formatNumber(data.rendimientoMadera[m])}
                   </td>
                 ))}
               </tr>
@@ -487,7 +629,7 @@ function DashboardPage() {
                   <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>{cert}</td>
                   {MESES.map(m => (
                     <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                      {data.ventasMadera[cert]?.[m]?.toFixed(3) ?? '0.000'}
+                      {formatNumber(data.ventasMadera[cert]?.[m])}
                     </td>
                   ))}
                 </tr>
@@ -500,7 +642,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockInicial['W5.2']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockInicial['W5.2']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -512,7 +654,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockFinal['W5.2']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockFinal['W5.2']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -529,7 +671,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.produccionAstillas[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.produccionAstillas[m])}
                   </td>
                 ))}
               </tr>
@@ -541,7 +683,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>%</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.rendimientoAstillas[m]?.toFixed(1) ?? '0.0'}
+                    {formatNumber(data.rendimientoAstillas[m])}
                   </td>
                 ))}
               </tr>
@@ -562,7 +704,7 @@ function DashboardPage() {
                   <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>{cert}</td>
                   {MESES.map(m => (
                     <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                      {data.ventasAstillas[cert]?.[m]?.toFixed(3) ?? '0.000'}
+                      {formatNumber(data.ventasAstillas[cert]?.[m])}
                     </td>
                   ))}
                 </tr>
@@ -575,7 +717,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockInicial['W3.1']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockInicial['W3.1']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -587,7 +729,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockFinal['W3.1']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockFinal['W3.1']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -604,7 +746,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.produccionAserrin[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.produccionAserrin[m])}
                   </td>
                 ))}
               </tr>
@@ -616,7 +758,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>%</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.rendimientoAserrin[m]?.toFixed(1) ?? '0.0'}
+                    {formatNumber(data.rendimientoAserrin[m])}
                   </td>
                 ))}
               </tr>
@@ -637,7 +779,7 @@ function DashboardPage() {
                   <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>{cert}</td>
                   {MESES.map(m => (
                     <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                      {data.ventasAserrin[cert]?.[m]?.toFixed(3) ?? '0.000'}
+                      {formatNumber(data.ventasAserrin[cert]?.[m])}
                     </td>
                   ))}
                 </tr>
@@ -650,7 +792,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockInicial['W3.2']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockInicial['W3.2']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -662,7 +804,7 @@ function DashboardPage() {
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
-                    {data.stockFinal['W3.2']?.[m]?.toFixed(3) ?? '0.000'}
+                    {formatNumber(data.stockFinal['W3.2']?.[m])}
                   </td>
                 ))}
               </tr>
@@ -691,6 +833,18 @@ function DashboardPage() {
       <VentaForm
         isOpen={isVentaOpen}
         onClose={() => setVentaOpen(false)}
+      />
+      <UserFunctionsManager
+        isOpen={isFunctionsManagerOpen}
+        onClose={() => setFunctionsManagerOpen(false)}
+      />
+      <DocumentProcessor
+        isOpen={isDocumentProcessorOpen}
+        onClose={() => setDocumentProcessorOpen(false)}
+        onProcessingComplete={() => {
+          // Recargar datos del dashboard después del procesamiento
+          window.location.reload()
+        }}
       />
     </div>
   )

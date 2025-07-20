@@ -19,10 +19,8 @@ const PRODUCTOS = [
 export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps) {
   const [formData, setFormData] = useState({
     fecha: '',
-    producto_origen: PRODUCTOS[0].codigo,
-    producto_destino: PRODUCTOS[1].codigo,
-    volumen_origen: '',
-    volumen_destino: '',
+    producto_destino: PRODUCTOS[1].codigo, // Solo producto de destino
+    volumen_produccion: '', // Solo volumen de producción
     descripcion: ''
   })
   const [loading, setLoading] = useState(false)
@@ -43,23 +41,14 @@ export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps)
 
     try {
       // Validar datos
-      if (!formData.fecha || !formData.volumen_origen || !formData.volumen_destino) {
+      if (!formData.fecha || !formData.volumen_produccion) {
         throw new Error('Por favor completa todos los campos requeridos')
       }
 
-      const volumenOrigenNumerico = parseFloat(formData.volumen_origen)
-      const volumenDestinoNumerico = parseFloat(formData.volumen_destino)
+      const volumenProduccion = parseFloat(formData.volumen_produccion)
       
-      if (isNaN(volumenOrigenNumerico) || volumenOrigenNumerico <= 0) {
-        throw new Error('El volumen de origen debe ser un número positivo')
-      }
-      
-      if (isNaN(volumenDestinoNumerico) || volumenDestinoNumerico <= 0) {
-        throw new Error('El volumen de destino debe ser un número positivo')
-      }
-
-      if (formData.producto_origen === formData.producto_destino) {
-        throw new Error('El producto de origen debe ser diferente al producto de destino')
+      if (isNaN(volumenProduccion) || volumenProduccion <= 0) {
+        throw new Error('El volumen de producción debe ser un número positivo')
       }
 
       // Obtener el usuario actual
@@ -69,17 +58,17 @@ export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps)
         throw new Error('Usuario no autenticado')
       }
 
-      // Insertar en Supabase
+      // Insertar en Supabase - simplificado para solo registrar producción
       const { data, error: supabaseError } = await supabase
         .from('produccion')
         .insert([
           {
             user_id: user.id,
             fecha_produccion: formData.fecha,
-            producto_origen_codigo: formData.producto_origen,
+            producto_origen_codigo: 'W1.1', // Siempre desde trozos
             producto_destino_codigo: formData.producto_destino,
-            volumen_origen_m3: volumenOrigenNumerico,
-            volumen_destino_m3: volumenDestinoNumerico,
+            volumen_origen_m3: 0, // Se calculará después basado en consumos
+            volumen_destino_m3: volumenProduccion,
             descripcion: formData.descripcion || null
           }
         ])
@@ -95,10 +84,8 @@ export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps)
       // Limpiar formulario y cerrar
       setFormData({
         fecha: '',
-        producto_origen: PRODUCTOS[0].codigo,
         producto_destino: PRODUCTOS[1].codigo,
-        volumen_origen: '',
-        volumen_destino: '',
+        volumen_produccion: '',
         descripcion: ''
       })
       onClose()
@@ -114,10 +101,7 @@ export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps)
     }
   }
 
-  // Calcular factor de rendimiento en tiempo real
-  const factorRendimiento = formData.volumen_origen && formData.volumen_destino 
-    ? ((parseFloat(formData.volumen_destino) / parseFloat(formData.volumen_origen)) * 100).toFixed(1)
-    : '0.0'
+
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Registrar Producción">
@@ -148,112 +132,52 @@ export default function ProduccionForm({ isOpen, onClose }: ProduccionFormProps)
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="producto_origen" className="block mb-2 text-gray-700 font-medium">
-              Producto de Origen
-            </label>
-            <select
-              id="producto_origen"
-              name="producto_origen"
-              value={formData.producto_origen}
-              onChange={handleChange}
-              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              style={{ 
-                borderColor: 'var(--light-brown)',
-                backgroundColor: 'white'
-              }}
-              disabled={loading}
-            >
-              {PRODUCTOS.map(p => (
-                <option key={p.codigo} value={p.codigo}>
-                  {p.codigo} - {p.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="producto_destino" className="block mb-2 text-gray-700 font-medium">
-              Producto de Destino
-            </label>
-            <select
-              id="producto_destino"
-              name="producto_destino"
-              value={formData.producto_destino}
-              onChange={handleChange}
-              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              style={{ 
-                borderColor: 'var(--light-brown)',
-                backgroundColor: 'white'
-              }}
-              disabled={loading}
-            >
-              {PRODUCTOS.map(p => (
-                <option key={p.codigo} value={p.codigo}>
-                  {p.codigo} - {p.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label htmlFor="producto_destino" className="block mb-2 text-gray-700 font-medium">
+            Tipo de Producto a Producir
+          </label>
+          <select
+            id="producto_destino"
+            name="producto_destino"
+            value={formData.producto_destino}
+            onChange={handleChange}
+            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            style={{ 
+              borderColor: 'var(--light-brown)',
+              backgroundColor: 'white'
+            }}
+            disabled={loading}
+          >
+            {PRODUCTOS.filter(p => p.codigo !== 'W1.1').map(p => (
+              <option key={p.codigo} value={p.codigo}>
+                {p.codigo} - {p.nombre}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="volumen_origen" className="block mb-2 text-gray-700 font-medium">
-              Volumen Origen (m³)
-            </label>
-            <input
-              type="number"
-              id="volumen_origen"
-              name="volumen_origen"
-              value={formData.volumen_origen}
-              onChange={handleChange}
-              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              style={{ 
-                borderColor: 'var(--light-brown)',
-                backgroundColor: 'white'
-              }}
-              required
-              step="0.001"
-              min="0"
-              placeholder="Ej: 3.443"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="volumen_destino" className="block mb-2 text-gray-700 font-medium">
-              Volumen Destino (m³)
-            </label>
-            <input
-              type="number"
-              id="volumen_destino"
-              name="volumen_destino"
-              value={formData.volumen_destino}
-              onChange={handleChange}
-              className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              style={{ 
-                borderColor: 'var(--light-brown)',
-                backgroundColor: 'white'
-              }}
-              required
-              step="0.001"
-              min="0"
-              placeholder="Ej: 1.647"
-              disabled={loading}
-            />
-          </div>
+        <div>
+          <label htmlFor="volumen_produccion" className="block mb-2 text-gray-700 font-medium">
+            Volumen de Producción (m³)
+          </label>
+          <input
+            type="number"
+            id="volumen_produccion"
+            name="volumen_produccion"
+            value={formData.volumen_produccion}
+            onChange={handleChange}
+            className="w-full border-2 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            style={{ 
+              borderColor: 'var(--light-brown)',
+              backgroundColor: 'white'
+            }}
+            required
+            step="0.001"
+            min="0"
+            placeholder="Ej: 1.647"
+            disabled={loading}
+          />
         </div>
-
-        {/* Mostrar factor de rendimiento calculado */}
-        {formData.volumen_origen && formData.volumen_destino && (
-          <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
-            <p className="text-green-800 font-medium">
-              Factor de Rendimiento: {factorRendimiento}%
-            </p>
-          </div>
-        )}
 
         <div>
           <label htmlFor="descripcion" className="block mb-2 text-gray-700 font-medium">
