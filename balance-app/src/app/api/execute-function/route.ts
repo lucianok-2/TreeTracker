@@ -56,10 +56,11 @@ export async function POST(request: NextRequest) {
       // Continuar el procesamiento sin historial
     }
 
-    // Crear FormData para enviar a la API Python (sin userId ya que no lo necesita)
+    // Crear FormData para enviar a la API Python (CON userId para que lo use en el procesamiento)
     const pythonFormData = new FormData()
     pythonFormData.append('file', file)
     pythonFormData.append('functionId', functionId)
+    pythonFormData.append('userId', userId)  // PASAR EL USER_ID AL PYTHON
 
     try {
       // Llamar a la API Python Flask
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
 function parseInsertStatement(insertSql: string): unknown {
   /**
    * Convierte un INSERT SQL a un objeto para Supabase
-   * Ejemplo: INSERT INTO recepciones (fecha_recepcion, producto_codigo, ...) VALUES ('2025-01-01', 'W1.1', ...)
+   * Ejemplo: INSERT INTO recepciones (fecha_recepcion, producto_codigo, ..., user_id) VALUES ('2025-01-01', 'W1.1', ..., 'user-uuid')
    */
   try {
     // Extraer los valores del INSERT statement
@@ -184,7 +185,8 @@ function parseInsertStatement(insertSql: string): unknown {
       proveedor: values[2],
       num_guia: values[3],
       volumen_m3: parseFloat(values[4]),
-      certificacion: values[5]
+      certificacion: values[5],
+      user_id: values[6]  // AGREGAR EL USER_ID
     }
   } catch (error) {
     console.error('Error parseando INSERT statement:', insertSql, error)

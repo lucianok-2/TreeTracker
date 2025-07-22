@@ -5,12 +5,13 @@ from datetime import datetime
 import tempfile
 
 
-def process_file(file):
+def process_file(file, user_id):
     """
     Función principal que será llamada por la API Flask
 
     Args:
         file: Archivo subido desde el frontend
+        user_id: ID del usuario autenticado que está procesando el archivo
 
     Returns:
         dict: Resultado del procesamiento con INSERT statements
@@ -29,8 +30,8 @@ def process_file(file):
             temp_path = temp_file.name
 
         try:
-            # Ejecutar el procesamiento principal
-            result = process_excel_file(temp_path)
+            # Ejecutar el procesamiento principal CON EL USER_ID
+            result = process_excel_file(temp_path, user_id)
             return result
 
         finally:
@@ -46,9 +47,13 @@ def process_file(file):
         }
 
 
-def process_excel_file(file_path):
+def process_excel_file(file_path, user_id):
     """
     Procesa el archivo Excel y genera INSERT statements
+    
+    Args:
+        file_path: Ruta del archivo Excel a procesar
+        user_id: ID del usuario autenticado
     """
 
     # ————————————————
@@ -211,20 +216,21 @@ def process_excel_file(file_path):
                         fecha = datetime(AÑO, mes_num, 1)
                         print(f"📅 Fila {index}: Usando fecha basada en hoja: {fecha}")
 
-                    # Generar INSERT statement
-                    insert_sql = f"""INSERT INTO recepciones (fecha_recepcion, producto_codigo, proveedor, num_guia, volumen_m3, certificacion) 
-VALUES ('{fecha.isoformat()}', '{PRODUCTO_CODIGO}', '{proveedor.replace("'", "''")}', '{num_guia}', {volumen}, '{certificacion.replace("'", "''")}');"""
+                    # Generar INSERT statement CON EL USER_ID REAL
+                    insert_sql = f"""INSERT INTO recepciones (fecha_recepcion, producto_codigo, proveedor, num_guia, volumen_m3, certificacion, user_id) 
+VALUES ('{fecha.isoformat()}', '{PRODUCTO_CODIGO}', '{proveedor.replace("'", "''")}', '{num_guia}', {volumen}, '{certificacion.replace("'", "''")}', '{user_id}');"""
 
                     insert_statements.append(insert_sql)
 
-                    # Log del registro procesado
+                    # Log del registro procesado CON EL USER_ID REAL
                     record = {
                         "fecha_recepcion": fecha.isoformat(),
                         "producto_codigo": PRODUCTO_CODIGO,
                         "proveedor": proveedor,
                         "num_guia": num_guia,
                         "volumen_m3": volumen,
-                        "certificacion": certificacion
+                        "certificacion": certificacion,
+                        "user_id": user_id  # USAR EL USER_ID REAL DEL USUARIO AUTENTICADO
                     }
 
                     print("✅ Procesado:", record)

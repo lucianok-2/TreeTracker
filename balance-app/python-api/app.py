@@ -29,6 +29,7 @@ def execute_function():
         # Obtener datos del request
         function_id = request.form.get('functionId')
         file = request.files.get('file')
+        user_id = request.form.get('userId')  # RECIBIR EL USER_ID
         
         if not function_id:
             return jsonify({
@@ -41,9 +42,15 @@ def execute_function():
                 "success": False,
                 "error": "Archivo es requerido"
             }), 400
+            
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "error": "userId es requerido"
+            }), 400
         
-        # Ejecutar la función específica
-        result = execute_user_function(function_id, file)
+        # Ejecutar la función específica CON EL USER_ID
+        result = execute_user_function(function_id, file, user_id)
         
         return jsonify(result)
         
@@ -57,9 +64,11 @@ def execute_function():
             "error": error_message
         }), 500
 
-def execute_user_function(function_id, file):
-    """Ejecuta la función Python específica basada en el ID"""
+def execute_user_function(function_id, file, user_id):
+    """Ejecuta la función Python específica basada en el ID CON EL USER_ID"""
     try:
+        print(f"🔍 Ejecutando función {function_id} para usuario {user_id}")
+        
         # Mapeo de function_id a archivo Python
         function_files = {
             '1': 'functions/process_ingresos.py',
@@ -88,9 +97,9 @@ def execute_user_function(function_id, file):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         
-        # Ejecutar la función principal del módulo
+        # Ejecutar la función principal del módulo CON EL USER_ID
         if hasattr(module, 'process_file'):
-            return module.process_file(file)
+            return module.process_file(file, user_id)  # PASAR EL USER_ID A LA FUNCIÓN
         else:
             return {
                 "success": False,

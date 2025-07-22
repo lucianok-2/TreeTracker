@@ -26,7 +26,14 @@ export default function Navbar() {
             <h1 className="text-2xl font-bold text-gray-800">
               Balance de Materiales
             </h1>
-
+            <nav className="flex space-x-4 mt-2">
+              <a href="/dashboard" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                📊 Dashboard
+              </a>
+              <a href="/recepciones" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                📋 Recepciones
+              </a>
+            </nav>
           </div>
         </div>
 

@@ -51,9 +51,18 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Fallback al usuario que funciona en el diagnóstico
-    const validUserId = authenticatedUserId || '19631038-8401-427e-baf8-064a51cba583';
-    console.log(`✅ Usando user_id: ${validUserId} ${authenticatedUserId ? '(autenticado)' : '(fallback)'}`);
+    // IMPORTANTE: Usar SIEMPRE el usuario autenticado para mantener separación
+    const validUserId = authenticatedUserId;
+    
+    if (!validUserId) {
+      console.error('❌ No se pudo obtener usuario autenticado');
+      return NextResponse.json(
+        { error: 'Usuario no autenticado. Por favor inicia sesión.' },
+        { status: 401 }
+      );
+    }
+    
+    console.log(`✅ Usando user_id del usuario autenticado: ${validUserId}`);
 
     if (insert_statements && Array.isArray(insert_statements)) {
       console.log(`🔄 Procesando ${insert_statements.length} INSERT statements...`);
@@ -90,9 +99,52 @@ export async function POST(request: NextRequest) {
         
         // Generar el SQL INSERT completo para debugging
         const recordsWithAuthUser = parsedRecords.map(record => ({
-          ...record,
-          user_id: validUserId // Usar el usuario autenticado
+          fecha_recepcion: record.fecha_recepcion,
+          producto_codigo: record.producto_codigo,
+          proveedor: record.proveedor,
+          num_guia: record.num_guia,
+          volumen_m3: record.volumen_m3,
+          certificacion: record.certificacion,
+          user_id: validUserId // SIEMPRE usar el usuario autenticado, NUNCA NULL
+          // NO incluir 'id' - se auto-genera
+          // NO incluir 'created_at' - se auto-genera
+          // NO incluir 'updated_at' - se auto-genera
         }));
+
+        // VERIFICACIÓN CRÍTICA: Asegurar que TODOS los registros tienen user_id válido
+        const recordsWithoutUserId = recordsWithAuthUser.filter(r => !r.user_id || r.user_id === null || r.user_id === undefined);
+        if (recordsWithoutUserId.length > 0) {
+          console.error('❌ REGISTROS SIN USER_ID DETECTADOS:', recordsWithoutUserId.length);
+          console.error('❌ Registros problemáticos:', recordsWithoutUserId);
+          return NextResponse.json(
+            { 
+              error: 'Error crítico: Algunos registros no tienen user_id asignado', 
+              details: `${recordsWithoutUserId.length} registros sin user_id`,
+              problematic_records: recordsWithoutUserId.length
+            },
+            { status: 400 }
+          );
+        }
+        
+        // VERIFICACIÓN ADICIONAL: Validar que el user_id es un UUID válido
+        const invalidUserIds = recordsWithAuthUser.filter(r => {
+          const userId = r.user_id;
+          return !userId || typeof userId !== 'string' || userId.length !== 36 || !userId.includes('-');
+        });
+        
+        if (invalidUserIds.length > 0) {
+          console.error('❌ USER_IDS INVÁLIDOS DETECTADOS:', invalidUserIds.length);
+          return NextResponse.json(
+            { 
+              error: 'Error crítico: Algunos registros tienen user_id inválido', 
+              details: `${invalidUserIds.length} registros con user_id inválido`
+            },
+            { status: 400 }
+          );
+        }
+        
+        console.log(`✅ VERIFICACIÓN COMPLETA: TODOS LOS ${recordsWithAuthUser.length} REGISTROS TIENEN USER_ID VÁLIDO: ${validUserId}`);
+        console.log(`✅ FORMATO USER_ID VERIFICADO: ${validUserId} (${validUserId.length} caracteres)`);
 
         // Mostrar el SQL INSERT que se generaría
         const sqlInsertExample = `
@@ -116,31 +168,52 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
         console.log(`- Último registro completo:`, JSON.stringify(recordsWithAuthUser[recordsWithAuthUser.length - 1], null, 2));
         console.log('='.repeat(80));
 
-        // Crear cliente con el token del usuario autenticado para que RLS funcione
-        const userSupabase = authenticatedUserId && authHeader ? 
-          createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-              global: {
-                headers: {
-                  Authorization: authHeader
-                }
-              }
-            }
-          ) : supabase; // Fallback al service role si no hay token
+        // USAR EXACTAMENTE EL MISMO MÉTODO QUE FUNCIONA EN EL DIAGNÓSTICO
+        console.log('🔧 USANDO MÉTODO IDÉNTICO AL DIAGNÓSTICO EXITOSO');
+        const userSupabase = supabase; // Usar service role key directo como en el diagnóstico
+
+        // DEBUGGING: Verificar el contexto de autenticación antes de insertar
+        console.log('🔍 VERIFICANDO CONTEXTO DE AUTENTICACIÓN:');
+        try {
+          const { data: { user: currentUser } } = await userSupabase.auth.getUser();
+          console.log('- Usuario actual en el contexto:', currentUser?.id || 'NO AUTENTICADO');
+          console.log('- Email del usuario:', currentUser?.email || 'NO DISPONIBLE');
+          console.log('- Rol del usuario:', currentUser?.role || 'NO DISPONIBLE');
+        } catch (authCheckError) {
+          console.log('- Error verificando usuario:', authCheckError);
+        }
+
+        // DEBUGGING: Verificar políticas RLS activas
+        console.log('🔍 VERIFICANDO POLÍTICAS RLS:');
+        try {
+          const { data: policies } = await supabase.rpc('exec_sql', { 
+            sql: `SELECT policyname, cmd, qual, with_check FROM pg_policies WHERE tablename = 'recepciones' AND cmd = 'INSERT';`
+          });
+          console.log('- Políticas INSERT activas:', policies);
+        } catch (policyError) {
+          console.log('- Error obteniendo políticas:', policyError);
+        }
 
         try {
+          console.log('🚀 EJECUTANDO INSERCIÓN MASIVA...');
           const { data, error } = await userSupabase
             .from('recepciones')
             .insert(recordsWithAuthUser)
             .select();
 
+          console.log('📊 RESULTADO DE INSERCIÓN MASIVA:');
+          console.log('- Error:', error);
+          console.log('- Data length:', data?.length || 0);
+          console.log('- Error code:', error?.code);
+          console.log('- Error details:', error?.details);
+          console.log('- Error hint:', error?.hint);
+          console.log('- Error message completo:', error?.message);
+
           if (!error && data) {
             insertedCount = data.length;
             console.log(`✅ Inserción masiva exitosa con usuario autenticado: ${insertedCount} registros`);
           } else {
-            throw new Error(`Inserción masiva falló: ${error?.message}`);
+            throw new Error(`Inserción masiva falló: ${error?.message} (Code: ${error?.code})`);
           }
         } catch (massInsertError) {
           console.log('⚠️ Inserción masiva falló, intentando inserción individual...');
@@ -185,13 +258,21 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
         num_guia: record.num_guia,
         volumen_m3: record.volumen_m3,
         certificacion: record.certificacion,
-        user_id: null // Usar NULL para evitar problemas de RLS
+        user_id: validUserId // Usar el user_id válido
       }));
+
+      console.log('🔧 INSERTANDO DIRECTAMENTE CON SUPABASE CLIENT (SIN FUNCIÓN)');
+      console.log('📋 Primer registro a insertar:', recordsToInsert[0]);
 
       const { data, error } = await supabase
         .from('recepciones')
         .insert(recordsToInsert)
         .select();
+
+      console.log('📊 RESULTADO INSERCIÓN DIRECTA:');
+      console.log('- Error:', error);
+      console.log('- Data length:', data?.length || 0);
+      console.log('- Error completo:', JSON.stringify(error, null, 2));
 
       if (error) {
         console.error('❌ Error insertando registros:', error);
