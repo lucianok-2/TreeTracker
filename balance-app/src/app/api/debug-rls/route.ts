@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Investigando políticas RLS...');
 
     const results = {
-      rls_status: null,
-      policies: null,
-      user_info: null,
-      test_insert: null
+      rls_status: null as any,
+      policies: null as any,
+      user_info: null as any,
+      test_insert: null as any
     };
 
     // 1. Verificar estado de RLS

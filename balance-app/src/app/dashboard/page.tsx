@@ -388,8 +388,18 @@ function DashboardPage() {
             })
           }
 
-          // Calcular stock final: Stock Inicial + Recepción - Consumo
-          const stockFinal = stockInicial + totalRecepciones - consumoMes
+          // Calcular stock final según el tipo de producto
+          let stockFinal = 0
+          if (producto === 'W1.1') {
+            // Para materia prima: Stock Inicial + Recepciones - Consumo
+            stockFinal = stockInicial + totalRecepciones - consumoMes
+          } else if (producto === 'W5.2') {
+            // Para MADERA (W5.2): Stock Inicial + Producción - Ventas
+            stockFinal = stockInicial + produccionMes - ventasMes
+          } else if (producto === 'W3.1' || producto === 'W3.2') {
+            // Para subproductos: Stock Inicial + Producción - Ventas
+            stockFinal = stockInicial + produccionMes - ventasMes
+          }
 
           // Guardar stock final
           if (!processedData.stockFinal[producto]) {

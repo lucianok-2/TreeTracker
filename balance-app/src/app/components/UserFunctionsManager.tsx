@@ -38,17 +38,41 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
   const loadUserFunctions = useCallback(async () => {
     setIsLoading(true)
     try {
-      const userId = user?.id || '11111111-1111-1111-1111-111111111111'
-      
-      const { data, error } = await supabase
-        .from('user_functions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
+      if (!user) {
+        console.log('⚠️ No hay usuario autenticado')
+        setFunctions([])
+        return
+      }
 
-      if (error) throw error
-      setFunctions(data || [])
+      console.log(`🔍 Cargando funciones para usuario: ${user.id}`)
+
+      // Cargar funciones personalizadas del usuario
+      const response = await fetch(`/api/python-functions?userId=${user.id}`)
+      if (!response.ok) {
+        throw new Error('Error cargando funciones personalizadas')
+      }
+
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Error cargando funciones')
+      }
+
+      console.log(`✅ Funciones cargadas: ${result.functions.length}`)
+      console.log('📋 Funciones:', result.functions)
+
+      // Convertir las funciones al formato esperado
+      const userFunctions = result.functions.map((func: unknown) => ({
+        id: func.id,
+        function_name: func.function_name,
+        function_description: func.function_description,
+        function_code: 'python_function', // Marcar como función Python
+        is_active: func.is_active,
+        created_at: new Date().toISOString(),
+        user_specific: func.user_specific || false,
+        file_path: func.file_path || null
+      }))
+
+      setFunctions(userFunctions)
     } catch (error) {
       console.error('Error loading user functions:', error)
     } finally {
@@ -83,11 +107,11 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
 
       // Recargar la lista
       await loadUserFunctions()
-      
+
       // Limpiar el formulario
       setNewFunctionName('')
       setNewFunctionDescription('')
-      
+
       alert('Función creada exitosamente. El proveedor implementará la lógica específica para tu caso.')
     } catch (error) {
       console.error('Error creating function:', error)
@@ -126,16 +150,16 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
       return
     }
 
-    if (!func.function_code) {
-      showToast('error', 'Esta función no tiene código implementado aún')
+    if (!user) {
+      showToast('error', 'Debes estar autenticado para ejecutar funciones')
       return
     }
 
     setIsExecuting(func.id)
-    
+
     try {
       showToast('info', 'Iniciando procesamiento del archivo...')
-      
+
       // Crear FormData para enviar el archivo y los parámetros
       const formData = new FormData()
       formData.append('file', selectedFile)
@@ -154,7 +178,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
         showToast('success', `¡Procesamiento completado! ${result.records_processed || 0} registros procesados exitosamente`)
         setExecutionResult(result)
         setSelectedFile(null)
-        
+
         // Limpiar el input de archivo
         const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
         if (fileInput) {
@@ -163,7 +187,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
       } else {
         throw new Error(result.error || 'Error desconocido en el procesamiento')
       }
-      
+
     } catch (error) {
       console.error('Error executing function:', error)
       showToast('error', `Error al ejecutar la función: ${error instanceof Error ? error.message : 'Error desconocido'}`)
@@ -354,13 +378,12 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
                         <button
                           onClick={() => executeFunction(func)}
                           disabled={isExecuting === func.id || !selectedFile}
-                          className={`px-3 py-1 text-sm rounded ${
-                            isExecuting === func.id
+                          className={`px-3 py-1 text-sm rounded ${isExecuting === func.id
                               ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed'
                               : selectedFile
-                              ? 'bg-blue-500 text-white hover:bg-blue-600'
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          }`}
+                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
                         >
                           {isExecuting === func.id ? 'Ejecutando...' : 'Ejecutar'}
                         </button>
@@ -375,11 +398,10 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
                       )}
                       <button
                         onClick={() => toggleFunctionStatus(func.id, func.is_active)}
-                        className={`px-3 py-1 text-sm rounded ${
-                          func.is_active
+                        className={`px-3 py-1 text-sm rounded ${func.is_active
                             ? 'bg-green-100 text-green-800 hover:bg-green-200'
                             : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                        }`}
+                          }`}
                       >
                         {func.is_active ? 'Activa' : 'Inactiva'}
                       </button>
@@ -409,7 +431,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
                 <div className="text-sm text-gray-600">Statements Generados</div>
               </div>
             </div>
-            
+
             {executionResult.errors && executionResult.errors.length > 0 && (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Advertencias:</h4>
@@ -429,11 +451,10 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
               <button
                 onClick={insertRecordsToDatabase}
                 disabled={isInserting || !executionResult.insert_statements?.length}
-                className={`px-6 py-2 rounded-md font-medium ${
-                  isInserting
+                className={`px-6 py-2 rounded-md font-medium ${isInserting
                     ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
+                  }`}
               >
                 {isInserting ? 'Insertando...' : '💾 Insertar en Base de Datos'}
               </button>
@@ -455,7 +476,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
                 <div className="text-sm text-gray-600">Errores</div>
               </div>
             </div>
-            
+
             {insertResult.errors && insertResult.errors.length > 0 && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
                 <h4 className="font-semibold text-red-800 mb-2">❌ Errores en la inserción:</h4>
@@ -466,7 +487,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
                 </ul>
               </div>
             )}
-            
+
             <p className="text-sm text-blue-700 mt-3">{insertResult.message}</p>
           </div>
         )}
@@ -481,7 +502,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
           </ul>
         </div>
       </div>
-      
+
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
