@@ -156,6 +156,9 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
     }
 
     setIsExecuting(func.id)
+    
+    // DEBUG: Log de la función que se está ejecutando
+    console.log('🎯 EJECUTANDO FUNCIÓN:', func.id, func.function_name)
 
     try {
       showToast('info', 'Iniciando procesamiento del archivo...')
@@ -176,6 +179,13 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
 
       if (result.success) {
         showToast('success', `¡Procesamiento completado! ${result.records_processed || 0} registros procesados exitosamente`)
+        
+        // FORZAR DETECCIÓN PARA FUNCIONES DE VENTAS (ID 3 y 4)
+        if (func.id === 3 || func.id === 4) {
+          console.log(`🎯 FUNCIÓN ID ${func.id} DETECTADA - FORZANDO TIPO VENTAS`)
+          result.function_type = 'ventas'
+        }
+        
         setExecutionResult(result)
         setSelectedFile(null)
 
@@ -224,7 +234,37 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
         console.log('⚠️ No se encontró token de autenticación, usando fallback')
       }
 
-      const response = await fetch('/api/bulk-insert-recepciones', {
+      // Determinar qué API usar basado en el tipo de INSERT statements
+      const firstStatement = executionResult.insert_statements[0]
+      let apiEndpoint = '/api/bulk-insert-recepciones' // Default
+      let tableType = 'recepciones'
+
+      console.log('🔍 DEBUG - Primer INSERT statement:', firstStatement)
+      console.log('🔍 DEBUG - Total statements:', executionResult.insert_statements.length)
+      console.log('🔍 DEBUG - Contiene "INSERT INTO ventas"?', firstStatement?.includes('INSERT INTO ventas'))
+      console.log('🔍 DEBUG - Contiene "INSERT INTO recepciones"?', firstStatement?.includes('INSERT INTO recepciones'))
+      console.log('🔍 DEBUG - Function type forzado:', executionResult.function_type)
+
+      // SOLUCIÓN DE EMERGENCIA: FORZAR SIEMPRE VENTAS SI CONTIENE "MASISA"
+      console.log('🚨 SOLUCIÓN DE EMERGENCIA ACTIVADA')
+      console.log('🔍 Buscando MASISA en statement:', firstStatement?.includes('MASISA'))
+      console.log('🔍 Buscando INSERT INTO ventas:', firstStatement?.includes('INSERT INTO ventas'))
+      
+      if (firstStatement && (firstStatement.includes('MASISA') || firstStatement.includes('INSERT INTO ventas'))) {
+        apiEndpoint = '/api/bulk-insert-ventas'
+        tableType = 'ventas'
+        console.log('🎯 EMERGENCIA: DETECTADO MASISA - FORZANDO VENTAS')
+        console.log('🔍 Statement completo:', firstStatement)
+      } else {
+        apiEndpoint = '/api/bulk-insert-recepciones'
+        tableType = 'recepciones'
+        console.log('❌ NO SE DETECTÓ MASISA - USANDO RECEPCIONES')
+        console.log('🔍 Statement completo:', firstStatement)
+      }
+
+      console.log(`🎯 Insertando en tabla: ${tableType} usando endpoint: ${apiEndpoint}`)
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -235,7 +275,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
       const result = await response.json()
 
       if (result.success && result.inserted_count > 0) {
-        showToast('success', `¡Inserción completada! ${result.inserted_count} registros insertados exitosamente`)
+        showToast('success', `¡Inserción completada! ${result.inserted_count} registros insertados exitosamente en ${tableType}`)
         setInsertResult(result)
         // Solo limpiar los resultados si la inserción fue 100% exitosa
         if (result.inserted_count === executionResult.insert_statements.length) {
@@ -446,7 +486,7 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
                 <p className="font-medium">{executionResult.message}</p>
-                <p>Los datos están listos para ser insertados en la tabla de recepciones.</p>
+                <p>Los datos están listos para ser insertados en la base de datos.</p>
               </div>
               <button
                 onClick={insertRecordsToDatabase}

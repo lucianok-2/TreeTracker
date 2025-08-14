@@ -75,16 +75,26 @@ def execute_user_function(function_id, file, user_id):
         # Mapeo específico para usuarios con funciones personalizadas
         user_function_mappings = {
             '496f6470-2f4d-40c6-9426-bb5421116a3d': {
-                # Para este usuario específico, cualquier función ID usa su archivo personalizado
+                # Mapeo específico por función ID para este usuario
+                '1': f"functions/{user_id}/process_recepciones.py",
+                '3': f"functions/{user_id}/process_venta_astilla_masisa.py",
+                '4': f"functions/{user_id}/process_ventas_generales.py",
+                # Función por defecto para IDs no especificados
                 'default': f"functions/{user_id}/process_recepciones.py"
             }
         }
 
         # Verificar si el usuario tiene funciones personalizadas
         if user_id in user_function_mappings:
-            user_function_file = user_function_mappings[user_id]['default']
+            user_mappings = user_function_mappings[user_id]
+
+            # Buscar función específica por ID, sino usar default
+            user_function_file = user_mappings.get(
+                str(function_id), user_mappings.get('default'))
+
             print(
                 f"🔍 Usuario con funciones personalizadas detectado: {user_id}")
+            print(f"📁 Función ID: {function_id}")
             print(f"📁 Buscando función personalizada en: {user_function_file}")
             print(
                 f"📁 ¿Existe el archivo? {os.path.exists(user_function_file)}")

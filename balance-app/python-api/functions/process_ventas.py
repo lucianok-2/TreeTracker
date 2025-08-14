@@ -183,8 +183,8 @@ def process_excel_file(file_path, user_id):
                         fecha = datetime.now()
                         print(f"📅 Fila {index}: Error en fecha, usando fecha actual: {fecha}")
 
-                    # Generar INSERT statement CON EL USER_ID
-                    insert_sql = f"""INSERT INTO recepciones (fecha_recepcion, producto_codigo, proveedor, num_guia, volumen_m3, certificacion, user_id) 
+                    # Generar INSERT statement PARA VENTAS CON EL USER_ID
+                    insert_sql = f"""INSERT INTO ventas (fecha_venta, producto_codigo, cliente, num_factura, volumen_m3, certificacion, user_id) 
 VALUES ('{fecha.isoformat()}', '{PRODUCTO_CODIGO}', '{proveedor.replace("'", "''")}', '{num_guia}', {volumen}, '{CERTIFICACION_DEFAULT}', '{user_id}');"""
 
                     insert_statements.append(insert_sql)

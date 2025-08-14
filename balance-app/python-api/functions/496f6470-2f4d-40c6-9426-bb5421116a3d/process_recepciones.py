@@ -55,6 +55,11 @@ def process_excel_file(file_path, user_id):
         file_path: Ruta del archivo Excel a procesar
         user_id: ID del usuario autenticado
     """
+    
+    print("⚠️⚠️⚠️ EJECUTANDO SCRIPT DE RECEPCIONES - NO VENTAS ⚠️⚠️⚠️")
+    print(f"📁 Archivo: {file_path}")
+    print(f"👤 Usuario: {user_id}")
+    print("⚠️⚠️⚠️ ESTE ES EL SCRIPT DE RECEPCIONES ⚠️⚠️⚠️")
 
     # ————————————————
     # 1) CONFIGURACIÓN

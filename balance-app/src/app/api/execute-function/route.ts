@@ -80,30 +80,12 @@ export async function POST(request: NextRequest) {
         throw new Error(pythonResult.error || 'Error en el procesamiento Python')
       }
 
-      // Ejecutar los INSERT statements usando Supabase
-      let insertedRecords = 0
+      // NO EJECUTAR INSERT STATEMENTS AUTOMÁTICAMENTE
+      // Los INSERT statements se devuelven al frontend para que el usuario decida cuándo insertarlos
+      console.log('📋 Devolviendo INSERT statements al frontend para inserción manual')
+      
+      const insertedRecords = 0
       const errors = []
-
-      if (pythonResult.insert_statements && pythonResult.insert_statements.length > 0) {
-        for (const insertSql of pythonResult.insert_statements) {
-          try {
-            // Convertir INSERT SQL a objeto para Supabase
-            const record = parseInsertStatement(insertSql)
-
-            const { error: insertError } = await supabase
-              .from('recepciones')
-              .insert(record)
-
-            if (insertError) {
-              errors.push(`Error insertando registro: ${insertError.message}`)
-            } else {
-              insertedRecords++
-            }
-          } catch (parseError) {
-            errors.push(`Error procesando INSERT: ${parseError instanceof Error ? parseError.message : 'Error desconocido'}`)
-          }
-        }
-      }
 
       // Actualizar el historial con el resultado (si existe)
       if (historyRecord) {
@@ -119,11 +101,12 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        records_processed: insertedRecords,
+        records_processed: pythonResult.records_processed,
         sheets_processed: pythonResult.sheets_processed,
         total_sheets: pythonResult.total_sheets,
-        errors: errors,
-        message: `¡Procesamiento completado! ${insertedRecords} registros insertados exitosamente.`
+        errors: pythonResult.errors || [],
+        insert_statements: pythonResult.insert_statements,
+        message: `¡Procesamiento completado! ${pythonResult.records_processed} registros procesados. Presiona "Insertar en Base de Datos" para guardarlos.`
       })
 
     } catch (pythonError) {

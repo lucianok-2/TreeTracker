@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import LoginForm from './components/LoginForm'
@@ -8,22 +8,12 @@ import LoginForm from './components/LoginForm'
 export default function Home() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!loading && user && mounted) {
+    if (!loading && user) {
       router.push('/dashboard')
     }
-  }, [user, loading, router, mounted])
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return null
-  }
+  }, [user, loading, router])
 
   if (loading) {
     return (
