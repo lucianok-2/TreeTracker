@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       
       for (const statement of insert_statements) {
         try {
-          // Extraer valores del INSERT statement usando regex
-          const match = statement.match(/VALUES \('([^']+)', '([^']+)', '([^']+)', '([^']+)', ([^,]+), '([^']+)'\)/);
+          // Extraer valores del INSERT statement usando regex - ACTUALIZADO PARA 7 CAMPOS
+          const match = statement.match(/VALUES \('([^']+)', '([^']+)', '([^']+)', '([^']+)', ([^,]+), '([^']+)', '([^']+)'\)/);
           if (match) {
             parsedRecords.push({
               fecha_recepcion: match[1],
@@ -81,8 +81,12 @@ export async function POST(request: NextRequest) {
               num_guia: match[4],
               volumen_m3: parseFloat(match[5]),
               certificacion: match[6].replace(/''/g, "'"), // Desescapar comillas
-              user_id: validUserId
+              user_id: validUserId // Usar siempre el usuario autenticado
             });
+            console.log(`✅ Statement parseado correctamente: ${match[4]} - ${match[3]}`);
+          } else {
+            console.log(`❌ NO SE DETECTÓ MASISA - USANDO RECEPCIONES: ${statement}`);
+            errors.push(`No se pudo parsear statement: ${statement}`);
           }
         } catch (parseError) {
           errors.push(`Error parseando statement: ${parseError}`);

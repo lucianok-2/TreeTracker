@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Obtener el usuario autenticado real desde el request
     const authHeader = request.headers.get('authorization');
     let authenticatedUserId = null;
-    
+
     if (authHeader) {
       try {
         // Crear cliente con el token del usuario autenticado
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
             }
           }
         );
-        
+
         const { data: { user } } = await userSupabase.auth.getUser();
         if (user) {
           authenticatedUserId = user.id;
@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
         console.log('⚠️ Error obteniendo usuario autenticado:', authError);
       }
     }
-    
+
     // IMPORTANTE: Usar SIEMPRE el usuario autenticado para mantener separación
     const validUserId = authenticatedUserId;
-    
+
     if (!validUserId) {
       console.error('❌ No se pudo obtener usuario autenticado');
       return NextResponse.json(
@@ -61,19 +61,19 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     console.log(`✅ Usando user_id del usuario autenticado: ${validUserId}`);
 
     if (insert_statements && Array.isArray(insert_statements)) {
       console.log(`🔄 Procesando ${insert_statements.length} INSERT statements para ventas...`);
-      
+
       const parsedRecords = [];
-      
+
       for (const statement of insert_statements) {
         try {
           // Extraer valores del INSERT statement para ventas usando regex
-          // INSERT INTO ventas (fecha_venta, producto_codigo, cliente, num_factura, volumen_m3, certificacion, user_id)
-          const match = statement.match(/VALUES \('([^']+)', '([^']+)', '([^']+)', '([^']+)', ([^,]+), '([^']+)', '([^']+)'\)/);
+          // INSERT INTO ventas (fecha_venta, producto_codigo, cliente, num_factura, volumen_m3, certificacion, precio_unitario, user_id)
+          const match = statement.match(/VALUES \('([^']+)', '([^']+)', '([^']+)', '([^']+)', ([^,]+), '([^']+)', (NULL|[^,]+), '([^']+)'\)/);
           if (match) {
             parsedRecords.push({
               fecha_venta: match[1],
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
               num_factura: match[4],
               volumen_m3: parseFloat(match[5]),
               certificacion: match[6].replace(/''/g, "'"), // Desescapar comillas
+              precio_unitario: match[7] === 'NULL' ? null : parseFloat(match[7]),
               user_id: validUserId // Usar el usuario autenticado
             });
           }
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
         // DEBUGGING: Mostrar el SQL completo que se va a ejecutar
         console.log('🔍 DEBUGGING - SQL COMPLETO PARA VENTAS:');
         console.log('='.repeat(80));
-        
+
         // Generar el SQL INSERT completo para debugging
         const recordsWithAuthUser = parsedRecords.map(record => ({
           fecha_venta: record.fecha_venta,
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
           num_factura: record.num_factura,
           volumen_m3: record.volumen_m3,
           certificacion: record.certificacion,
+          precio_unitario: record.precio_unitario,
           user_id: validUserId // SIEMPRE usar el usuario autenticado, NUNCA NULL
           // NO incluir 'id' - se auto-genera
           // NO incluir 'created_at' - se auto-genera
@@ -118,49 +120,49 @@ export async function POST(request: NextRequest) {
           console.error('❌ REGISTROS SIN USER_ID DETECTADOS:', recordsWithoutUserId.length);
           console.error('❌ Registros problemáticos:', recordsWithoutUserId);
           return NextResponse.json(
-            { 
-              error: 'Error crítico: Algunos registros no tienen user_id asignado', 
+            {
+              error: 'Error crítico: Algunos registros no tienen user_id asignado',
               details: `${recordsWithoutUserId.length} registros sin user_id`,
               problematic_records: recordsWithoutUserId.length
             },
             { status: 400 }
           );
         }
-        
+
         // VERIFICACIÓN ADICIONAL: Validar que el user_id es un UUID válido
         const invalidUserIds = recordsWithAuthUser.filter(r => {
           const userId = r.user_id;
           return !userId || typeof userId !== 'string' || userId.length !== 36 || !userId.includes('-');
         });
-        
+
         if (invalidUserIds.length > 0) {
           console.error('❌ USER_IDS INVÁLIDOS DETECTADOS:', invalidUserIds.length);
           return NextResponse.json(
-            { 
-              error: 'Error crítico: Algunos registros tienen user_id inválido', 
+            {
+              error: 'Error crítico: Algunos registros tienen user_id inválido',
               details: `${invalidUserIds.length} registros con user_id inválido`
             },
             { status: 400 }
           );
         }
-        
+
         console.log(`✅ VERIFICACIÓN COMPLETA: TODOS LOS ${recordsWithAuthUser.length} REGISTROS TIENEN USER_ID VÁLIDO: ${validUserId}`);
         console.log(`✅ FORMATO USER_ID VERIFICADO: ${validUserId} (${validUserId.length} caracteres)`);
 
         // Mostrar el SQL INSERT que se generaría
         const sqlInsertExample = `
-INSERT INTO ventas (fecha_venta, producto_codigo, cliente, num_factura, volumen_m3, certificacion, user_id)
+INSERT INTO ventas (fecha_venta, producto_codigo, cliente, num_factura, volumen_m3, certificacion, precio_unitario, user_id)
 VALUES 
-${recordsWithAuthUser.slice(0, 3).map(record => 
-  `  ('${record.fecha_venta}', '${record.producto_codigo}', '${record.cliente.replace(/'/g, "''")}', '${record.num_factura}', ${record.volumen_m3}, '${record.certificacion.replace(/'/g, "''")}', '${record.user_id}')`
-).join(',\n')}
+${recordsWithAuthUser.slice(0, 3).map(record =>
+          `  ('${record.fecha_venta}', '${record.producto_codigo}', '${record.cliente.replace(/'/g, "''")}', '${record.num_factura}', ${record.volumen_m3}, '${record.certificacion.replace(/'/g, "''")}', ${record.precio_unitario || 'NULL'}, '${record.user_id}')`
+        ).join(',\n')}
 ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} registros más` : ''};
         `;
-        
+
         console.log('📝 SQL INSERT que se ejecutará:');
         console.log(sqlInsertExample);
         console.log('='.repeat(80));
-        
+
         // Información adicional para debugging
         console.log('🔍 INFORMACIÓN DE DEBUGGING:');
         console.log(`- Total de registros: ${recordsWithAuthUser.length}`);
@@ -207,14 +209,14 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
           }
         } catch (massInsertError) {
           console.log('⚠️ Inserción masiva falló, intentando inserción individual...');
-          
+
           // Fallback: Inserción individual
           let successCount = 0;
-          
+
           for (const record of recordsWithAuthUser) {
             try {
               console.log(`📝 Insertando registro de venta: ${record.num_factura}`);
-              
+
               const { data: singleData, error: singleError } = await userSupabase
                 .from('ventas')
                 .insert([record])
@@ -232,7 +234,7 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
               errors.push(`Excepción insertando registro ${record.num_factura}: ${singleInsertError}`);
             }
           }
-          
+
           insertedCount = successCount;
           console.log(`✅ Inserción individual completada: ${successCount}/${parsedRecords.length} registros`);
         }
@@ -240,7 +242,7 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
 
     } else if (records && Array.isArray(records)) {
       console.log(`🔄 Insertando ${records.length} registros de ventas directamente...`);
-      
+
       const recordsToInsert = records.map(record => ({
         fecha_venta: record.fecha_venta,
         producto_codigo: record.producto_codigo,
@@ -279,7 +281,7 @@ ${recordsWithAuthUser.length > 3 ? `... y ${recordsWithAuthUser.length - 3} regi
 
     return NextResponse.json({
       success: true,
-      message: errors.length > 0 
+      message: errors.length > 0
         ? `Se insertaron ${insertedCount} registros de ventas con ${errors.length} errores`
         : `Se insertaron ${insertedCount} registros de ventas exitosamente`,
       inserted_count: insertedCount,

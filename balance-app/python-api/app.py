@@ -78,7 +78,7 @@ def execute_user_function(function_id, file, user_id):
                 # Mapeo específico por función ID para este usuario
                 '1': f"functions/{user_id}/process_recepciones.py",
                 '3': f"functions/{user_id}/process_venta_astilla_masisa.py",
-                '4': f"functions/{user_id}/process_ventas_generales.py",
+                '4': f"functions/{user_id}/process_ventas_masisa.py",
                 # Función por defecto para IDs no especificados
                 'default': f"functions/{user_id}/process_recepciones.py"
             }
