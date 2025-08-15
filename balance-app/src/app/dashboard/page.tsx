@@ -115,33 +115,33 @@ function DashboardPage() {
           .select('*')
           .eq('año', currentYear)
 
-        // Cargar recepciones
+        // Cargar recepciones - FILTRO MEJORADO PARA FECHAS
         const { data: recepcionesData, error: recepcionesError } = await supabase
           .from('recepciones')
           .select('*')
-          .gte('fecha_recepcion', `${currentYear}-01-01`)
-          .lte('fecha_recepcion', `${currentYear}-12-31`)
+          .gte('fecha_recepcion', `${currentYear}-01-01T00:00:00`)
+          .lt('fecha_recepcion', `${currentYear + 1}-01-01T00:00:00`)
 
-        // Cargar consumos
+        // Cargar consumos - FILTRO MEJORADO PARA FECHAS
         const { data: consumosData, error: consumosError } = await supabase
           .from('consumos')
           .select('*')
-          .gte('fecha_consumo', `${currentYear}-01-01`)
-          .lte('fecha_consumo', `${currentYear}-12-31`)
+          .gte('fecha_consumo', `${currentYear}-01-01T00:00:00`)
+          .lt('fecha_consumo', `${currentYear + 1}-01-01T00:00:00`)
 
-        // Cargar producción
+        // Cargar producción - FILTRO MEJORADO PARA FECHAS
         const { data: produccionData, error: produccionError } = await supabase
           .from('produccion')
           .select('*')
-          .gte('fecha_produccion', `${currentYear}-01-01`)
-          .lte('fecha_produccion', `${currentYear}-12-31`)
+          .gte('fecha_produccion', `${currentYear}-01-01T00:00:00`)
+          .lt('fecha_produccion', `${currentYear + 1}-01-01T00:00:00`)
 
-        // Cargar ventas
+        // Cargar ventas - FILTRO MEJORADO PARA FECHAS
         const { data: ventasData, error: ventasError } = await supabase
           .from('ventas')
           .select('*')
-          .gte('fecha_venta', `${currentYear}-01-01`)
-          .lte('fecha_venta', `${currentYear}-12-31`)
+          .gte('fecha_venta', `${currentYear}-01-01T00:00:00`)
+          .lt('fecha_venta', `${currentYear + 1}-01-01T00:00:00`)
 
         if (stockError) console.error('Error loading stock:', stockError)
         if (recepcionesError) console.error('Error loading recepciones:', recepcionesError)
@@ -201,9 +201,21 @@ function DashboardPage() {
 
       // Procesar recepciones (ingresos)
       rawData.recepciones.forEach((item: unknown) => {
-        const fecha = new Date(item.fecha_recepcion)
-        const mesNombre = MESES[fecha.getMonth()]
+        // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
+        const fechaStr = item.fecha_recepcion.split('T')[0] // Tomar solo la parte de fecha
+        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
+        const mesNombre = MESES[mesNumero]
         const cert = item.certificacion
+
+        console.log('Procesando recepción:', {
+          fecha_original: item.fecha_recepcion,
+          fecha_procesada: fechaStr,
+          año: año,
+          mes: mes,
+          mes_nombre: mesNombre,
+          volumen: item.volumen_m3
+        })
 
         if (!processedData.ingresos[cert]) {
           processedData.ingresos[cert] = {}
@@ -216,18 +228,17 @@ function DashboardPage() {
 
       // Procesar consumos
       rawData.consumos.forEach((item: unknown) => {
-        // Usar una forma más robusta de procesar la fecha
-        const fechaStr = item.fecha_consumo
+        // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
+        const fechaStr = item.fecha_consumo.split('T')[0] // Tomar solo la parte de fecha
         const [año, mes, dia] = fechaStr.split('-').map(Number)
         const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
         const mesNombre = MESES[mesNumero]
 
         console.log('Procesando consumo:', {
           fecha_original: item.fecha_consumo,
+          fecha_procesada: fechaStr,
           año: año,
           mes: mes,
-          dia: dia,
-          mes_numero: mesNumero,
           mes_nombre: mesNombre,
           volumen: item.volumen_m3
         })
@@ -240,8 +251,21 @@ function DashboardPage() {
 
       // Procesar producción
       rawData.produccion.forEach((item: unknown) => {
-        const fecha = new Date(item.fecha_produccion)
-        const mesNombre = MESES[fecha.getMonth()]
+        // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
+        const fechaStr = item.fecha_produccion.split('T')[0] // Tomar solo la parte de fecha
+        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
+        const mesNombre = MESES[mesNumero]
+
+        console.log('Procesando producción:', {
+          fecha_original: item.fecha_produccion,
+          fecha_procesada: fechaStr,
+          año: año,
+          mes: mes,
+          mes_nombre: mesNombre,
+          producto: item.producto_destino_codigo,
+          volumen: item.volumen_destino_m3
+        })
 
         // Producción de madera (W5.2)
         if (item.producto_destino_codigo === 'W5.2') {
@@ -284,9 +308,23 @@ function DashboardPage() {
       // Procesar ventas
       if (rawData.ventas && Array.isArray(rawData.ventas)) {
         rawData.ventas.forEach((item: unknown) => {
-          const fecha = new Date(item.fecha_venta)
-          const mesNombre = MESES[fecha.getMonth()]
+          // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
+          const fechaStr = item.fecha_venta.split('T')[0] // Tomar solo la parte de fecha
+          const [año, mes, dia] = fechaStr.split('-').map(Number)
+          const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
+          const mesNombre = MESES[mesNumero]
           const cert = item.certificacion
+
+          console.log('Procesando venta:', {
+            fecha_original: item.fecha_venta,
+            fecha_procesada: fechaStr,
+            año: año,
+            mes: mes,
+            mes_nombre: mesNombre,
+            producto: item.producto_codigo,
+            volumen: item.volumen_m3,
+            cliente: item.cliente
+          })
 
           // Ventas de madera (W5.2)
           if (item.producto_codigo === 'W5.2') {
@@ -341,7 +379,8 @@ function DashboardPage() {
           let stockInicial = processedData.stockInicial[producto][mes] || 0
 
           // Si no hay stock inicial configurado y hay stock anterior, usar el stock anterior
-          if (stockInicial === 0 && stockAnterior > 0) {
+          // EXCEPTO para astillas y aserrín que siempre tienen stock 0
+          if (stockInicial === 0 && stockAnterior > 0 && producto !== 'W3.1' && producto !== 'W3.2') {
             stockInicial = stockAnterior
             // Actualizar el stock inicial calculado
             if (!processedData.stockInicial[producto]) {
@@ -397,8 +436,14 @@ function DashboardPage() {
             // Para MADERA (W5.2): Stock Inicial + Producción - Ventas
             stockFinal = stockInicial + produccionMes - ventasMes
           } else if (producto === 'W3.1' || producto === 'W3.2') {
-            // Para subproductos: Stock Inicial + Producción - Ventas
-            stockFinal = stockInicial + produccionMes - ventasMes
+            // Para ASTILLAS y ASERRÍN: SIEMPRE STOCK INICIAL Y FINAL = 0 (se vende todo)
+            stockInicial = 0
+            stockFinal = 0
+            // Actualizar también el stock inicial a 0
+            if (!processedData.stockInicial[producto]) {
+              processedData.stockInicial[producto] = {}
+            }
+            processedData.stockInicial[producto][mes] = 0
           }
 
           // Guardar stock final
@@ -408,7 +453,12 @@ function DashboardPage() {
           processedData.stockFinal[producto][mes] = stockFinal
 
           // Actualizar stock anterior para el próximo mes
-          stockAnterior = stockFinal
+          // EXCEPTO para astillas y aserrín que siempre mantienen stock 0
+          if (producto === 'W3.1' || producto === 'W3.2') {
+            stockAnterior = 0
+          } else {
+            stockAnterior = stockFinal
+          }
         })
       })
 
