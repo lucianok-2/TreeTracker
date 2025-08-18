@@ -79,6 +79,7 @@ def execute_user_function(function_id, file, user_id):
                 '1': f"functions/{user_id}/process_recepciones.py",
                 '3': f"functions/{user_id}/process_venta_astilla_masisa.py",
                 '4': f"functions/{user_id}/process_ventas_masisa.py",
+                '5': f"functions/{user_id}/process_ventas_arauco.py",
                 # Función por defecto para IDs no especificados
                 'default': f"functions/{user_id}/process_recepciones.py"
             }
@@ -180,6 +181,12 @@ def list_functions():
                 "function_name": "Procesador de Inventario",
                 "function_description": "Procesa archivos Excel de inventario y genera INSERT statements para la tabla inventario",
                 "is_active": True
+            },
+            {
+                "id": 5,
+                "function_name": "Procesador de Proforma ARAUCO",
+                "function_description": "Procesa archivos Excel de proforma ARAUCO y genera INSERT statements para la tabla ventas",
+                "is_active": True
             }
         ]
 
@@ -201,6 +208,7 @@ if __name__ == '__main__':
     print("   - ID 1: Procesador de Reportes de Ingreso")
     print("   - ID 2: Procesador de Ventas")
     print("   - ID 3: Procesador de Inventario")
+    print("   - ID 5: Procesador de Proforma ARAUCO")
     print("🌐 API corriendo en http://localhost:5000")
 
     app.run(debug=True, host='0.0.0.0', port=5000)

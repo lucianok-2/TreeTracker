@@ -71,21 +71,50 @@ export async function POST(request: NextRequest) {
       
       for (const statement of insert_statements) {
         try {
-          // Extraer valores del INSERT statement usando regex - ACTUALIZADO PARA 7 CAMPOS
-          const match = statement.match(/VALUES \('([^']+)', '([^']+)', '([^']+)', '([^']+)', ([^,]+), '([^']+)', '([^']+)'\)/);
-          if (match) {
-            parsedRecords.push({
-              fecha_recepcion: match[1],
-              producto_codigo: match[2],
-              proveedor: match[3].replace(/''/g, "'"), // Desescapar comillas
-              num_guia: match[4],
-              volumen_m3: parseFloat(match[5]),
-              certificacion: match[6].replace(/''/g, "'"), // Desescapar comillas
+          // Extraer columnas y valores del INSERT statement de forma más flexible
+          const columnsMatch = statement.match(/INSERT INTO recepciones \(([^)]+)\)/);
+          const valuesMatch = statement.match(/VALUES \(([^)]+)\)/);
+          
+          if (columnsMatch && valuesMatch) {
+            const columns = columnsMatch[1].split(',').map(col => col.trim());
+            const values = valuesMatch[1].split(',').map(val => val.trim());
+            
+            // Crear objeto con los valores parseados
+            const record: unknown = {
               user_id: validUserId // Usar siempre el usuario autenticado
-            });
-            console.log(`✅ Statement parseado correctamente: ${match[4]} - ${match[3]}`);
+            };
+            
+            // Mapear columnas a valores
+            for (let i = 0; i < columns.length; i++) {
+              const column = columns[i];
+              const value = values[i];
+              
+              if (column === 'fecha_recepcion') {
+                record.fecha_recepcion = value.replace(/'/g, '');
+              } else if (column === 'producto_codigo') {
+                record.producto_codigo = value.replace(/'/g, '');
+              } else if (column === 'proveedor') {
+                record.proveedor = value.replace(/'/g, '').replace(/''/g, "'");
+              } else if (column === 'num_guia') {
+                record.num_guia = value.replace(/'/g, '');
+              } else if (column === 'volumen_m3') {
+                record.volumen_m3 = parseFloat(value);
+              } else if (column === 'certificacion') {
+                record.certificacion = value.replace(/'/g, '').replace(/''/g, "'");
+              } else if (column === 'rol') {
+                record.rol = value.replace(/'/g, '').replace(/''/g, "'");
+              } else if (column === 'origen') {
+                record.origen = value.replace(/'/g, '').replace(/''/g, "'");
+              } else if (column === 'comuna') {
+                record.comuna = value.replace(/'/g, '').replace(/''/g, "'");
+              }
+              // Ignorar user_id del statement, usar el autenticado
+            }
+            
+            parsedRecords.push(record);
+            console.log(`✅ Statement parseado correctamente: ${record.num_guia} - ${record.proveedor}`);
           } else {
-            console.log(`❌ NO SE DETECTÓ MASISA - USANDO RECEPCIONES: ${statement}`);
+            console.log(`❌ NO SE PUDO PARSEAR STATEMENT: ${statement}`);
             errors.push(`No se pudo parsear statement: ${statement}`);
           }
         } catch (parseError) {

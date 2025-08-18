@@ -3,50 +3,45 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthContext'
+import Link from 'next/link'
 
-interface Recepcion {
+interface Produccion {
   id: string
-  fecha_recepcion: string
-  producto_codigo: string
-  proveedor: string
-  num_guia: string
-  volumen_m3: number
-  certificacion: string
-  rol?: string
-  origen?: string
-  comuna?: string
+  fecha_produccion: string
+  producto_origen_codigo: string
+  volumen_origen_m3: number
+  producto_destino_codigo: string
+  volumen_destino_m3: number
+  factor_rendimiento: number
   user_id: string
   created_at: string
   updated_at: string
 }
 
-export default function RecepcionesPage() {
+export default function ProduccionPage() {
   const { user } = useAuth()
-  const [recepciones, setRecepciones] = useState<Recepcion[]>([])
+  const [producciones, setProducciones] = useState<Produccion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
-  const [filtroProveedor, setFiltroProveedor] = useState('')
-  const [filtroRol, setFiltroRol] = useState('')
-  const [filtroOrigen, setFiltroOrigen] = useState('')
-  const [filtroComuna, setFiltroComuna] = useState('')
-  const [editingRecepcion, setEditingRecepcion] = useState<Recepcion | null>(null)
+  const [filtroProductoOrigen, setFiltroProductoOrigen] = useState('')
+  const [filtroProductoDestino, setFiltroProductoDestino] = useState('')
+  const [editingProduccion, setEditingProduccion] = useState<Produccion | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
 
-  const loadRecepciones = useCallback(async () => {
+  const loadProducciones = useCallback(async () => {
     if (!user) {
       console.log('No hay usuario autenticado')
       setLoading(false)
       return
     }
 
-    console.log('Cargando recepciones para usuario:', user.id)
+    console.log('Cargando producciones para usuario:', user.id)
     setLoading(true)
     setError(null)
 
     try {
-      // Verificar la sesión actual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError) {
@@ -58,31 +53,25 @@ export default function RecepcionesPage() {
         throw new Error('No hay sesión activa')
       }
 
-      console.log('Sesión activa, consultando recepciones...')
+      console.log('Sesión activa, consultando producciones...')
 
       let query = supabase
-        .from('recepciones')
+        .from('produccion')
         .select('*')
-        .order('fecha_recepcion', { ascending: false })
+        .order('fecha_produccion', { ascending: false })
 
       // Aplicar filtros
       if (fechaInicio) {
-        query = query.gte('fecha_recepcion', fechaInicio)
+        query = query.gte('fecha_produccion', fechaInicio)
       }
       if (fechaFin) {
-        query = query.lte('fecha_recepcion', fechaFin)
+        query = query.lte('fecha_produccion', fechaFin)
       }
-      if (filtroProveedor) {
-        query = query.ilike('proveedor', `%${filtroProveedor}%`)
+      if (filtroProductoOrigen) {
+        query = query.ilike('producto_origen_codigo', `%${filtroProductoOrigen}%`)
       }
-      if (filtroRol) {
-        query = query.ilike('rol', `%${filtroRol}%`)
-      }
-      if (filtroOrigen) {
-        query = query.ilike('origen', `%${filtroOrigen}%`)
-      }
-      if (filtroComuna) {
-        query = query.ilike('comuna', `%${filtroComuna}%`)
+      if (filtroProductoDestino) {
+        query = query.ilike('producto_destino_codigo', `%${filtroProductoDestino}%`)
       }
 
       console.log('Ejecutando consulta...')
@@ -93,19 +82,19 @@ export default function RecepcionesPage() {
         throw fetchError
       }
 
-      console.log('Recepciones cargadas:', data?.length || 0)
-      setRecepciones(data || [])
+      console.log('Producciones cargadas:', data?.length || 0)
+      setProducciones(data || [])
     } catch (err) {
-      console.error('Error cargando recepciones:', err)
+      console.error('Error cargando producciones:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }
-  }, [user, fechaInicio, fechaFin, filtroProveedor, filtroRol, filtroOrigen, filtroComuna])
+  }, [user, fechaInicio, fechaFin, filtroProductoOrigen, filtroProductoDestino])
 
   useEffect(() => {
-    loadRecepciones()
-  }, [loadRecepciones])
+    loadProducciones()
+  }, [loadProducciones])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('es-ES', {
@@ -124,10 +113,22 @@ export default function RecepcionesPage() {
     }).format(num)
   }
 
-  const totalVolumen = recepciones.reduce((sum, r) => sum + r.volumen_m3, 0)
+  const formatPercentage = (num: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2
+    }).format(num / 100)
+  }
 
-  const handleEdit = (recepcion: Recepcion) => {
-    setEditingRecepcion(recepcion)
+  const totalVolumenOrigen = producciones.reduce((sum, p) => sum + p.volumen_origen_m3, 0)
+  const totalVolumenDestino = producciones.reduce((sum, p) => sum + p.volumen_destino_m3, 0)
+  const rendimientoPromedio = producciones.length > 0 
+    ? producciones.reduce((sum, p) => sum + p.factor_rendimiento, 0) / producciones.length 
+    : 0
+
+  const handleEdit = (produccion: Produccion) => {
+    setEditingProduccion(produccion)
     setShowEditModal(true)
   }
 
@@ -138,7 +139,7 @@ export default function RecepcionesPage() {
 
     try {
       const { error } = await supabase
-        .from('recepciones')
+        .from('produccion')
         .delete()
         .eq('id', id)
 
@@ -146,8 +147,7 @@ export default function RecepcionesPage() {
         throw error
       }
 
-      // Recargar la lista después de eliminar
-      await loadRecepciones()
+      await loadProducciones()
       alert('Registro eliminado exitosamente')
     } catch (err) {
       console.error('Error eliminando registro:', err)
@@ -156,32 +156,28 @@ export default function RecepcionesPage() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingRecepcion) return
+    if (!editingProduccion) return
 
     try {
       const { error } = await supabase
-        .from('recepciones')
+        .from('produccion')
         .update({
-          fecha_recepcion: editingRecepcion.fecha_recepcion,
-          proveedor: editingRecepcion.proveedor,
-          num_guia: editingRecepcion.num_guia,
-          volumen_m3: editingRecepcion.volumen_m3,
-          producto_codigo: editingRecepcion.producto_codigo,
-          certificacion: editingRecepcion.certificacion,
-          rol: editingRecepcion.rol || null,
-          origen: editingRecepcion.origen || null,
-          comuna: editingRecepcion.comuna || null
+          fecha_produccion: editingProduccion.fecha_produccion,
+          producto_origen_codigo: editingProduccion.producto_origen_codigo,
+          volumen_origen_m3: editingProduccion.volumen_origen_m3,
+          producto_destino_codigo: editingProduccion.producto_destino_codigo,
+          volumen_destino_m3: editingProduccion.volumen_destino_m3,
+          factor_rendimiento: editingProduccion.factor_rendimiento
         })
-        .eq('id', editingRecepcion.id)
+        .eq('id', editingProduccion.id)
 
       if (error) {
         throw error
       }
 
-      // Recargar la lista después de editar
-      await loadRecepciones()
+      await loadProducciones()
       setShowEditModal(false)
-      setEditingRecepcion(null)
+      setEditingProduccion(null)
       alert('Registro actualizado exitosamente')
     } catch (err) {
       console.error('Error actualizando registro:', err)
@@ -194,7 +190,7 @@ export default function RecepcionesPage() {
       <div className="container mx-auto p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Acceso Denegado</h1>
-          <p>Debes iniciar sesión para ver las recepciones.</p>
+          <p>Debes iniciar sesión para ver la producción.</p>
         </div>
       </div>
     )
@@ -203,12 +199,20 @@ export default function RecepcionesPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-4">📋 Recepciones Detalladas</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-bold">🏭 Producción Detallada</h1>
+          <Link 
+            href="/dashboard"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium"
+          >
+            🏠 Volver al Dashboard
+          </Link>
+        </div>
         
         {/* Filtros */}
         <div className="bg-white p-4 rounded-lg shadow mb-6">
           <h2 className="text-lg font-semibold mb-4">🔍 Filtros</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Fecha Inicio</label>
               <input
@@ -228,49 +232,29 @@ export default function RecepcionesPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Proveedor</label>
+              <label className="block text-sm font-medium mb-2">Producto Origen</label>
               <input
                 type="text"
-                value={filtroProveedor}
-                onChange={(e) => setFiltroProveedor(e.target.value)}
-                placeholder="Buscar proveedor..."
+                value={filtroProductoOrigen}
+                onChange={(e) => setFiltroProductoOrigen(e.target.value)}
+                placeholder="Buscar producto origen..."
                 className="w-full p-2 border rounded-md"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Rol</label>
+              <label className="block text-sm font-medium mb-2">Producto Destino</label>
               <input
                 type="text"
-                value={filtroRol}
-                onChange={(e) => setFiltroRol(e.target.value)}
-                placeholder="Buscar rol..."
-                className="w-full p-2 border rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Origen/Predio</label>
-              <input
-                type="text"
-                value={filtroOrigen}
-                onChange={(e) => setFiltroOrigen(e.target.value)}
-                placeholder="Buscar origen..."
-                className="w-full p-2 border rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Comuna</label>
-              <input
-                type="text"
-                value={filtroComuna}
-                onChange={(e) => setFiltroComuna(e.target.value)}
-                placeholder="Buscar comuna..."
+                value={filtroProductoDestino}
+                onChange={(e) => setFiltroProductoDestino(e.target.value)}
+                placeholder="Buscar producto destino..."
                 className="w-full p-2 border rounded-md"
               />
             </div>
           </div>
           <div className="mt-4">
             <button
-              onClick={loadRecepciones}
+              onClick={loadProducciones}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
             >
               🔄 Actualizar
@@ -279,20 +263,22 @@ export default function RecepcionesPage() {
         </div>
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{recepciones.length}</div>
-            <div className="text-sm text-green-700">Total Recepciones</div>
+            <div className="text-2xl font-bold text-green-600">{producciones.length}</div>
+            <div className="text-sm text-green-700">Total Producciones</div>
           </div>
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <div className="text-2xl font-bold text-blue-600">{formatNumber(totalVolumen)} m³</div>
-            <div className="text-sm text-blue-700">Volumen Total</div>
+            <div className="text-2xl font-bold text-blue-600">{formatNumber(totalVolumenOrigen)} m³</div>
+            <div className="text-sm text-blue-700">Volumen Origen</div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="text-2xl font-bold text-purple-600">
-              {new Set(recepciones.map(r => r.proveedor)).size}
-            </div>
-            <div className="text-sm text-purple-700">Proveedores Únicos</div>
+            <div className="text-2xl font-bold text-purple-600">{formatNumber(totalVolumenDestino)} m³</div>
+            <div className="text-sm text-purple-700">Volumen Destino</div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="text-2xl font-bold text-yellow-600">{formatPercentage(rendimientoPromedio)}</div>
+            <div className="text-sm text-yellow-700">Rendimiento Promedio</div>
           </div>
         </div>
       </div>
@@ -301,24 +287,24 @@ export default function RecepcionesPage() {
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4">Cargando recepciones...</p>
+          <p className="mt-4">Cargando producciones...</p>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <h3 className="text-red-800 font-semibold">❌ Error</h3>
           <p className="text-red-700">{error}</p>
           <button
-            onClick={loadRecepciones}
+            onClick={loadProducciones}
             className="mt-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
           >
             Reintentar
           </button>
         </div>
-      ) : recepciones.length === 0 ? (
+      ) : producciones.length === 0 ? (
         <div className="text-center py-8">
-          <div className="text-6xl mb-4">📭</div>
-          <h3 className="text-xl font-semibold mb-2">No hay recepciones</h3>
-          <p className="text-gray-600">No se encontraron recepciones con los filtros aplicados.</p>
+          <div className="text-6xl mb-4">🏭</div>
+          <h3 className="text-xl font-semibold mb-2">No hay producciones</h3>
+          <p className="text-gray-600">No se encontraron producciones con los filtros aplicados.</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -327,31 +313,22 @@ export default function RecepcionesPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha Recepción
+                    Fecha Producción
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Proveedor
+                    Producto Origen
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Num. Guía
+                    Vol. Origen (m³)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Volumen (m³)
+                    Producto Destino
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Producto
+                    Vol. Destino (m³)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Certificación
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rol
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Origen/Predio
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Comuna
+                    Rendimiento
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Creado
@@ -362,49 +339,40 @@ export default function RecepcionesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recepciones.map((recepcion) => (
-                  <tr key={recepcion.id} className="hover:bg-gray-50">
+                {producciones.map((produccion) => (
+                  <tr key={produccion.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(recepcion.fecha_recepcion)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {recepcion.proveedor}
+                      {formatDate(produccion.fecha_produccion)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {recepcion.num_guia}
+                      {produccion.producto_origen_codigo}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                      {formatNumber(recepcion.volumen_m3)}
+                      {formatNumber(produccion.volumen_origen_m3)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {recepcion.producto_codigo}
+                      {produccion.producto_destino_codigo}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {recepcion.certificacion}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {formatNumber(produccion.volumen_destino_m3)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {recepcion.rol || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {recepcion.origen || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {recepcion.comuna || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {formatPercentage(produccion.factor_rendimiento)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(recepcion.created_at)}
+                      {formatDate(produccion.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleEdit(recepcion)}
+                          onClick={() => handleEdit(produccion)}
                           className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
                           title="Editar registro"
                         >
                           ✏️ Editar
                         </button>
                         <button
-                          onClick={() => handleDelete(recepcion.id)}
+                          onClick={() => handleDelete(produccion.id)}
                           className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs"
                           title="Eliminar registro"
                         >
@@ -421,130 +389,90 @@ export default function RecepcionesPage() {
       )}
 
       {/* Modal de Edición */}
-      {showEditModal && editingRecepcion && (
+      {showEditModal && editingProduccion && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">✏️ Editar Recepción</h2>
+            <h2 className="text-xl font-bold mb-4">✏️ Editar Producción</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Fecha Recepción</label>
+                <label className="block text-sm font-medium mb-2">Fecha Producción</label>
                 <input
                   type="datetime-local"
-                  value={editingRecepcion.fecha_recepcion.slice(0, 16)}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    fecha_recepcion: e.target.value
+                  value={editingProduccion.fecha_produccion.slice(0, 16)}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    fecha_produccion: e.target.value
                   })}
                   className="w-full p-2 border rounded-md"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Producto Código</label>
+                <label className="block text-sm font-medium mb-2">Producto Origen</label>
                 <input
                   type="text"
-                  value={editingRecepcion.producto_codigo}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    producto_codigo: e.target.value
-                  })}
-                  className="w-full p-2 border rounded-md"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Proveedor</label>
-                <input
-                  type="text"
-                  value={editingRecepcion.proveedor}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    proveedor: e.target.value
+                  value={editingProduccion.producto_origen_codigo}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    producto_origen_codigo: e.target.value
                   })}
                   className="w-full p-2 border rounded-md"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Número de Guía</label>
-                <input
-                  type="text"
-                  value={editingRecepcion.num_guia}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    num_guia: e.target.value
-                  })}
-                  className="w-full p-2 border rounded-md"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Volumen (m³)</label>
+                <label className="block text-sm font-medium mb-2">Volumen Origen (m³)</label>
                 <input
                   type="number"
                   step="0.001"
-                  value={editingRecepcion.volumen_m3}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    volumen_m3: parseFloat(e.target.value) || 0
-                  })}
-                  className="w-full p-2 border rounded-md"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Certificación</label>
-                <input
-                  type="text"
-                  value={editingRecepcion.certificacion}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    certificacion: e.target.value
+                  value={editingProduccion.volumen_origen_m3}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    volumen_origen_m3: parseFloat(e.target.value) || 0
                   })}
                   className="w-full p-2 border rounded-md"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Rol</label>
+                <label className="block text-sm font-medium mb-2">Producto Destino</label>
                 <input
                   type="text"
-                  value={editingRecepcion.rol || ''}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    rol: e.target.value || undefined
+                  value={editingProduccion.producto_destino_codigo}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    producto_destino_codigo: e.target.value
                   })}
                   className="w-full p-2 border rounded-md"
-                  placeholder="Opcional"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Origen/Predio</label>
+                <label className="block text-sm font-medium mb-2">Volumen Destino (m³)</label>
                 <input
-                  type="text"
-                  value={editingRecepcion.origen || ''}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    origen: e.target.value || undefined
+                  type="number"
+                  step="0.001"
+                  value={editingProduccion.volumen_destino_m3}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    volumen_destino_m3: parseFloat(e.target.value) || 0
                   })}
                   className="w-full p-2 border rounded-md"
-                  placeholder="Opcional"
                 />
               </div>
               
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Comuna</label>
+              <div>
+                <label className="block text-sm font-medium mb-2">Factor Rendimiento (%)</label>
                 <input
-                  type="text"
-                  value={editingRecepcion.comuna || ''}
-                  onChange={(e) => setEditingRecepcion({
-                    ...editingRecepcion,
-                    comuna: e.target.value || undefined
+                  type="number"
+                  step="0.01"
+                  value={editingProduccion.factor_rendimiento}
+                  onChange={(e) => setEditingProduccion({
+                    ...editingProduccion,
+                    factor_rendimiento: parseFloat(e.target.value) || 0
                   })}
                   className="w-full p-2 border rounded-md"
-                  placeholder="Opcional"
                 />
               </div>
             </div>
@@ -553,7 +481,7 @@ export default function RecepcionesPage() {
               <button
                 onClick={() => {
                   setShowEditModal(false)
-                  setEditingRecepcion(null)
+                  setEditingProduccion(null)
                 }}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md"
               >

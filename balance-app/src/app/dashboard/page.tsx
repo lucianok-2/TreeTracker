@@ -560,6 +560,32 @@ function DashboardPage() {
               >
                 Procesar Documentos
               </button>
+              <div className="border-l border-gray-300 mx-2 h-8"></div>
+              <div className="text-sm text-gray-600 font-medium">Ver Detalles:</div>
+              <a
+                href="/recepciones"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                📋 Recepciones
+              </a>
+              <a
+                href="/ventas"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                💰 Ventas
+              </a>
+              <a
+                href="/produccion"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                🏭 Producción
+              </a>
+              <a
+                href="/consumo"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                ⚡ Consumo
+              </a>
             </div>
           </div>
         </div>

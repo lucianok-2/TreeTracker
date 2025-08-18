@@ -1,41 +1,298 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# 🚀 TreeTracker Balance App - Production .gitignore
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# ================================
+# 🔐 ARCHIVOS SENSIBLES (CRÍTICO)
+# ================================
+# Variables de entorno
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+python-api/.env
 
-# testing
-/coverage
+# Credenciales y configuraciones sensibles
+config/secrets.json
+config/database.json
+credentials.json
 
-# next.js
-/.next/
-/out/
+# ================================
+# 📊 ARCHIVOS SQL DE DESARROLLO
+# ================================
+# Scripts SQL temporales y de desarrollo
+sql/
+*.sql
+sql/*.sql
+sql/debug_*.sql
+sql/test_*.sql
+sql/create_*.sql
+sql/insert_*.sql
+sql/update_*.sql
+sql/fix_*.sql
+sql/setup_*.sql
 
-# production
-/build
+# Excepciones: Mantener solo esquemas esenciales
+!sql/schema.sql
+!sql/migrations/
 
-# misc
-.DS_Store
-*.pem
+# ================================
+# 🗂️ ARCHIVOS DE DESARROLLO
+# ================================
+# Logs de desarrollo
+*.log
+logs/
+python-api/logs/
+src/logs/
 
-# debug
+# Archivos temporales
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Archivos de prueba
+test-files/
+sample-data/
+mock-data/
+test-uploads/
+
+# Archivos de debug
+debug/
+debug-*
+*.debug
+
+# ================================
+# 📦 DEPENDENCIAS Y BUILD
+# ================================
+# Node.js
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Next.js
+.next/
+out/
+build/
+dist/
 
-# vercel
-.vercel
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
 
-# typescript
+# Python packages
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ================================
+# 🔧 HERRAMIENTAS DE DESARROLLO
+# ================================
+# IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ESLint
+.eslintcache
+
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# ================================
+# 🧪 TESTING Y COVERAGE
+# ================================
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jest
+coverage/
+
+# ================================
+# 📱 ARCHIVOS DE USUARIO
+# ================================
+# Archivos subidos por usuarios (desarrollo)
+uploads/
+user-files/
+processed-files/
+python-api/temp/
+python-api/uploads/
+
+# Archivos Excel de prueba
+*.xlsx
+*.xls
+test*.xlsx
+sample*.xlsx
+demo*.xlsx
+
+# Excepciones: Mantener templates
+!templates/*.xlsx
+!examples/*.xlsx
+
+# ================================
+# 🔄 ARCHIVOS DE SISTEMA
+# ================================
+# Sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ================================
+# 🚀 ARCHIVOS DE DESPLIEGUE
+# ================================
+# Docker (si se usa en el futuro)
+Dockerfile.dev
+docker-compose.dev.yml
+.dockerignore
+
+# Archivos de configuración local
+.local
+local.json
+local-config.json
+
+# ================================
+# 📈 MONITOREO Y ANALYTICS
+# ================================
+# Archivos de métricas locales
+metrics/
+analytics/
+performance/
+
+# ================================
+# 🔍 ARCHIVOS DE DEBUG ESPECÍFICOS
+# ================================
+# Debug de APIs
+src/app/api/debug-*/
+src/app/debug-*/
+python-api/debug_*.py
+python-api/test_*.py
+
+# Excepciones: Mantener APIs de debug esenciales
+!src/app/api/debug-rls/
+!src/app/api/test-supabase-connection/
+
+# ================================
+# 📋 DOCUMENTACIÓN DE DESARROLLO
+# ================================
+# Documentación temporal
+NOTES.md
+TODO.md
+DEVELOPMENT.md
+TESTING.md
+LOCAL_SETUP.md
+
+# Excepciones: Mantener documentación esencial
+!README.md
+!DEPLOYMENT_GUIDE.md
+!API_DOCUMENTATION.md
+
+# ================================
+# 🎨 ASSETS TEMPORALES
+# ================================
+# Imágenes temporales
+temp-images/
+screenshots/
+mockups/
+
+# ================================
+# 🔧 CONFIGURACIONES ESPECÍFICAS
+# ================================
+# Configuraciones de desarrollo específicas del usuario
+.env.user
+.env.personal
+config.local.json
+settings.local.json
+
+# Configuraciones de IDE específicas
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+
+# ================================
+# 📊 DATOS DE PRUEBA
+# ================================
+# Datos de prueba y semillas
+seed-data/
+test-data/
+sample-records/
+mock-database/
+
+# ================================
+# 🔄 ARCHIVOS DE BACKUP
+# ================================
+# Backups locales
+*.backup
+*.bak
+backup/
+backups/
+
+# ================================
+# 🌐 ARCHIVOS DE PRODUCCIÓN
+# ================================
+# Archivos que solo deben estar en producción
+.env.production.local
+production-config.json
+ssl-certificates/
+nginx-configs/
+
+# ================================
+# 📝 ARCHIVOS FINALES A MANTENER
+# ================================
+# Estos archivos SÍ deben estar en el repositorio:
+# - src/ (todo el código fuente)
+# - public/ (assets estáticos)
+# - package.json
+# - next.config.js
+# - tailwind.config.js
+# - tsconfig.json
+# - python-api/app.py
+# - python-api/functions/ (procesadores)
+# - python-api/requirements.txt
+# - README.md
+# - DEPLOYMENT_GUIDE.md

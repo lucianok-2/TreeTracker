@@ -55,7 +55,7 @@ def process_excel_file(file_path, user_id):
         file_path: Ruta del archivo Excel a procesar
         user_id: ID del usuario autenticado
     """
-    
+
     print("⚠️⚠️⚠️ EJECUTANDO SCRIPT DE RECEPCIONES - NO VENTAS ⚠️⚠️⚠️")
     print(f"📁 Archivo: {file_path}")
     print(f"👤 Usuario: {user_id}")
@@ -108,13 +108,14 @@ def process_excel_file(file_path, user_id):
                     column_mapping['proveedor'] = col
                     print(f"📋 Columna de proveedor encontrada: {col}")
                     break
-            
+
             # Si no se encontró NOMBRE_PROVEEDOR, buscar solo PROVEEDOR (pero no RUT)
             if 'proveedor' not in column_mapping:
                 for col in df.columns:
                     if 'PROVEEDOR' in col.upper() and 'RUT' not in col.upper() and 'NOMBRE' not in col.upper():
                         column_mapping['proveedor'] = col
-                        print(f"📋 Columna de proveedor alternativa encontrada: {col}")
+                        print(
+                            f"📋 Columna de proveedor alternativa encontrada: {col}")
                         break
 
             # Buscar FECHA_RECEPCION
@@ -133,6 +134,28 @@ def process_excel_file(file_path, user_id):
                     break
                 elif 'M3' in col.upper() or 'VOLUMEN' in col.upper():
                     column_mapping['volumen_m3'] = col
+                    break
+
+            # Buscar ROL
+            for col in df.columns:
+                if 'ROL' in col.upper():
+                    column_mapping['rol'] = col
+                    print(f"🏷️ Columna de rol encontrada: {col}")
+                    break
+
+            # Buscar ORIGEN/PREDIO
+            for col in df.columns:
+                col_clean = str(col).upper().replace('/', '').replace(' ', '')
+                if 'ORIGEN' in col_clean or 'PREDIO' in col_clean or ('ORIGEN' in col.upper() and 'PREDIO' in col.upper()):
+                    column_mapping['origen'] = col
+                    print(f"🌲 Columna de origen/predio encontrada: {col}")
+                    break
+
+            # Buscar COMUNA
+            for col in df.columns:
+                if 'COMUNA' in col.upper():
+                    column_mapping['comuna'] = col
+                    print(f"🏘️ Columna de comuna encontrada: {col}")
                     break
 
             print(f"📋 Mapeo de columnas: {column_mapping}")
@@ -158,14 +181,18 @@ def process_excel_file(file_path, user_id):
                     if pd.notna(row[column_mapping['num_guia']]):
                         try:
                             # Convertir a entero para eliminar decimales
-                            num_guia_int = int(float(row[column_mapping['num_guia']]))
+                            num_guia_int = int(
+                                float(row[column_mapping['num_guia']]))
                             num_guia = str(num_guia_int)
-                            print(f"📋 Fila {index}: Número de guía convertido: {row[column_mapping['num_guia']]} → {num_guia}")
+                            print(
+                                f"📋 Fila {index}: Número de guía convertido: {row[column_mapping['num_guia']]} → {num_guia}")
                         except (ValueError, TypeError):
-                            print(f"⚠️ Saltando fila {index}: error al convertir número de guía a entero")
+                            print(
+                                f"⚠️ Saltando fila {index}: error al convertir número de guía a entero")
                             continue
                     else:
-                        print(f"⚠️ Saltando fila {index}: número de guía vacío")
+                        print(
+                            f"⚠️ Saltando fila {index}: número de guía vacío")
                         continue
 
                     # Obtener proveedor (requerido)
@@ -214,9 +241,55 @@ def process_excel_file(file_path, user_id):
                         print(
                             f"📅 Fila {index}: Error en fecha, usando fecha actual: {fecha}")
 
-                    # Generar INSERT statement CON EL USER_ID
-                    insert_sql = f"""INSERT INTO recepciones (fecha_recepcion, producto_codigo, proveedor, num_guia, volumen_m3, certificacion, user_id) 
-VALUES ('{fecha.isoformat()}', '{PRODUCTO_CODIGO}', '{proveedor.replace("'", "''")}', '{num_guia}', {volumen}, '{CERTIFICACION_DEFAULT}', '{user_id}');"""
+                    # Obtener ROL (opcional)
+                    rol = None
+                    if 'rol' in column_mapping and pd.notna(row[column_mapping['rol']]):
+                        rol_raw = str(row[column_mapping['rol']]).strip()
+                        # Eliminar comillas simples del rol
+                        rol = rol_raw.replace("'", "")
+                        print(
+                            f"🏷️ Fila {index}: Rol procesado: '{rol_raw}' → '{rol}'")
+                    else:
+                        print(f"🏷️ Fila {index}: Sin rol especificado")
+
+                    # Obtener ORIGEN/PREDIO (opcional)
+                    origen = None
+                    if 'origen' in column_mapping and pd.notna(row[column_mapping['origen']]):
+                        origen = str(row[column_mapping['origen']]).strip()
+                        print(f"🌲 Fila {index}: Origen/Predio: {origen}")
+                    else:
+                        print(
+                            f"🌲 Fila {index}: Sin origen/predio especificado")
+
+                    # Obtener COMUNA (opcional)
+                    comuna = None
+                    if 'comuna' in column_mapping and pd.notna(row[column_mapping['comuna']]):
+                        comuna = str(row[column_mapping['comuna']]).strip()
+                        print(f"🏘️ Fila {index}: Comuna: {comuna}")
+                    else:
+                        print(f"🏘️ Fila {index}: Sin comuna especificada")
+
+                    # Generar INSERT statement CON LAS NUEVAS COLUMNAS
+                    # Construir la parte de columnas y valores dinámicamente
+                    columns = ['fecha_recepcion', 'producto_codigo', 'proveedor',
+                        'num_guia', 'volumen_m3', 'certificacion', 'user_id']
+                    values = [f"'{fecha.isoformat()}'", f"'{PRODUCTO_CODIGO}'", f"'{proveedor.replace(\"'\", \"''\")}' ", f"'{num_guia}'", str(volumen), f"'{CERTIFICACION_DEFAULT}'", f"'{user_id}'"]
+                    
+                    # Agregar columnas opcionales si tienen valor
+                    if rol is not None:
+                        columns.append('rol')
+                        values.append(f"'{rol.replace(\"'\", \"''\")}'")
+                    
+                    if origen is not None:
+                        columns.append('origen')
+                        values.append(f"'{origen.replace(\"'\", \"''\")}'")
+                    
+                    if comuna is not None:
+                        columns.append('comuna')
+                        values.append(f"'{comuna.replace(\"'\", \"''\")}'")
+
+                    insert_sql = f"""INSERT INTO recepciones ({', '.join(columns)}) 
+VALUES ({', '.join(values)});"""
 
                     insert_statements.append(insert_sql)
 
@@ -228,6 +301,9 @@ VALUES ('{fecha.isoformat()}', '{PRODUCTO_CODIGO}', '{proveedor.replace("'", "''
                         "num_guia": num_guia,
                         "volumen_m3": volumen,
                         "certificacion": CERTIFICACION_DEFAULT,
+                        "rol": rol,
+                        "origen": origen,
+                        "comuna": comuna,
                         "user_id": user_id
                     }
 

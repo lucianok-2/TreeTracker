@@ -248,17 +248,23 @@ export default function UserFunctionsManager({ isOpen, onClose, onFunctionSelect
       // SOLUCIÓN DE EMERGENCIA: FORZAR SIEMPRE VENTAS SI CONTIENE "MASISA"
       console.log('🚨 SOLUCIÓN DE EMERGENCIA ACTIVADA')
       console.log('🔍 Buscando MASISA en statement:', firstStatement?.includes('MASISA'))
+      console.log('🔍 Buscando ARAUCO en statement:', firstStatement?.includes('ARAUCO'))
       console.log('🔍 Buscando INSERT INTO ventas:', firstStatement?.includes('INSERT INTO ventas'))
       
-      if (firstStatement && (firstStatement.includes('MASISA') || firstStatement.includes('INSERT INTO ventas'))) {
+      if (firstStatement && firstStatement.includes('ARAUCO')) {
+        apiEndpoint = '/api/bulk-insert-ventas-arauco'
+        tableType = 'ventas'
+        console.log('🔥 DETECTADO ARAUCO - USANDO ENDPOINT ARAUCO')
+        console.log('🔍 Statement completo:', firstStatement)
+      } else if (firstStatement && (firstStatement.includes('MASISA') || firstStatement.includes('INSERT INTO ventas'))) {
         apiEndpoint = '/api/bulk-insert-ventas'
         tableType = 'ventas'
-        console.log('🎯 EMERGENCIA: DETECTADO MASISA - FORZANDO VENTAS')
+        console.log('🎯 DETECTADO MASISA - USANDO ENDPOINT MASISA')
         console.log('🔍 Statement completo:', firstStatement)
       } else {
         apiEndpoint = '/api/bulk-insert-recepciones'
         tableType = 'recepciones'
-        console.log('❌ NO SE DETECTÓ MASISA - USANDO RECEPCIONES')
+        console.log('❌ NO SE DETECTÓ CLIENTE ESPECÍFICO - USANDO RECEPCIONES')
         console.log('🔍 Statement completo:', firstStatement)
       }
 

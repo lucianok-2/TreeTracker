@@ -26,12 +26,21 @@ export default function Navbar() {
             <h1 className="text-2xl font-bold text-gray-800">
               Balance de Materiales
             </h1>
-            <nav className="flex space-x-4 mt-2">
+            <nav className="flex flex-wrap gap-4 mt-2">
               <a href="/dashboard" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                 📊 Dashboard
               </a>
               <a href="/recepciones" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                 📋 Recepciones
+              </a>
+              <a href="/ventas" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                💰 Ventas
+              </a>
+              <a href="/produccion" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                🏭 Producción
+              </a>
+              <a href="/consumo" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                ⚡ Consumo
               </a>
             </nav>
           </div>
