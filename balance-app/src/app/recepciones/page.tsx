@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthContext'
+import Navbar from '../components/Navbar'
 
 interface Recepcion {
   id: string
@@ -201,9 +202,11 @@ export default function RecepcionesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-4">📋 Recepciones Detalladas</h1>
+    <div className="min-h-screen" style={{ background: 'var(--light-green)' }}>
+      <Navbar />
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-4">📋 Recepciones Detalladas</h1>
         
         {/* Filtros */}
         <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -563,6 +566,7 @@ export default function RecepcionesPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

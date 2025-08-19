@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import Navbar from '../components/Navbar'
 
 interface Produccion {
   id: string
@@ -197,7 +198,9 @@ export default function ProduccionPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div>
+      <Navbar />
+      <div className="container mx-auto p-6">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-bold">🏭 Producción Detallada</h1>
@@ -497,6 +500,7 @@ export default function ProduccionPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

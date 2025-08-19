@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import Navbar from '../components/Navbar'
 
 interface Venta {
   id: string
@@ -196,8 +197,10 @@ export default function VentasPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
+    <div>
+      <Navbar />
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-bold">💰 Ventas Detalladas</h1>
           <Link 
@@ -517,6 +520,7 @@ export default function VentasPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
