@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthContext'
+import { DashboardData } from '@/types/dashboard'
+import ExcelExporter from '../components/ExcelExporter'
 import RecepcionForm from '../components/RecepcionForm'
 import ProduccionForm from '../components/ProduccionForm'
 import VentaForm from '../components/VentaForm'
@@ -31,31 +33,53 @@ const CERTS = [
   'Material Controlado'
 ]
 
-interface DashboardData {
-  stockInicial: Record<string, Record<string, number>> // producto -> mes -> valor
-  ingresos: Record<string, Record<string, number>>
-  stockFinal: Record<string, Record<string, number>>
-  consumo: Record<string, number>
-  produccionMadera: Record<string, number>
-  rendimientoMadera: Record<string, number>
-  ventasMadera: Record<string, Record<string, number>>
-  stockInicialMadera: Record<string, number>
-  stockFinalMadera: Record<string, number>
-  produccionAstillas: Record<string, number>
-  rendimientoAstillas: Record<string, number>
-  ventasAstillas: Record<string, Record<string, number>>
-  stockInicialAstillas: Record<string, number>
-  stockFinalAstillas: Record<string, number>
-  produccionAserrin: Record<string, number>
-  rendimientoAserrin: Record<string, number>
-  ventasAserrin: Record<string, Record<string, number>>
-  stockInicialAserrin: Record<string, number>
-  stockFinalAserrin: Record<string, number>
+interface StockItem {
+  mes: number
+  producto_codigo: string
+  volumen_m3: string
 }
+
+interface RecepcionItem {
+  fecha_recepcion: string
+  certificacion: string
+  volumen_m3: string
+}
+
+interface ConsumoItem {
+  fecha_consumo: string
+  volumen_m3: string
+}
+
+interface ProduccionItem {
+  fecha_produccion: string
+  producto_destino_codigo: string
+  volumen_destino_m3: string
+  factor_rendimiento?: string
+}
+
+interface VentaItem {
+  fecha_venta: string
+  certificacion: string
+  producto_codigo: string
+  volumen_m3: string
+  cliente: string
+}
+
+interface RawData {
+  stock: StockItem[]
+  recepciones: RecepcionItem[]
+  consumos: ConsumoItem[]
+  produccion: ProduccionItem[]
+  ventas: VentaItem[]
+}
+
+
 
 function DashboardPage() {
   const { user } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
+  
+
 
   // Función para formatear números: 1 decimal, pero si es entero no mostrar .0
   const formatNumber = (value: number | undefined | null): string => {
@@ -167,7 +191,7 @@ function DashboardPage() {
     }
 
     // Función para procesar los datos y organizarlos por mes
-    const processDataForDashboard = (rawData: unknown) => {
+    const processDataForDashboard = (rawData: RawData) => {
       const processedData: DashboardData = {
         stockInicial: {},
         ingresos: {},
@@ -191,7 +215,7 @@ function DashboardPage() {
       }
 
       // Procesar stock inicial
-      rawData.stock.forEach((item: unknown) => {
+      rawData.stock.forEach((item: StockItem) => {
         const mesNombre = MESES[item.mes - 1]
         if (!processedData.stockInicial[item.producto_codigo]) {
           processedData.stockInicial[item.producto_codigo] = {}
@@ -200,10 +224,10 @@ function DashboardPage() {
       })
 
       // Procesar recepciones (ingresos)
-      rawData.recepciones.forEach((item: unknown) => {
+      rawData.recepciones.forEach((item: RecepcionItem) => {
         // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
         const fechaStr = item.fecha_recepcion.split('T')[0] // Tomar solo la parte de fecha
-        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const [año, mes] = fechaStr.split('-').map(Number)
         const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
         const mesNombre = MESES[mesNumero]
         const cert = item.certificacion
@@ -227,10 +251,10 @@ function DashboardPage() {
       })
 
       // Procesar consumos
-      rawData.consumos.forEach((item: unknown) => {
+      rawData.consumos.forEach((item: ConsumoItem) => {
         // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
         const fechaStr = item.fecha_consumo.split('T')[0] // Tomar solo la parte de fecha
-        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const [año, mes] = fechaStr.split('-').map(Number)
         const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
         const mesNombre = MESES[mesNumero]
 
@@ -250,10 +274,10 @@ function DashboardPage() {
       })
 
       // Procesar producción
-      rawData.produccion.forEach((item: unknown) => {
+      rawData.produccion.forEach((item: ProduccionItem) => {
         // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
         const fechaStr = item.fecha_produccion.split('T')[0] // Tomar solo la parte de fecha
-        const [año, mes, dia] = fechaStr.split('-').map(Number)
+        const [año, mes] = fechaStr.split('-').map(Number)
         const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
         const mesNombre = MESES[mesNumero]
 
@@ -297,10 +321,10 @@ function DashboardPage() {
 
       // Procesar ventas
       if (rawData.ventas && Array.isArray(rawData.ventas)) {
-        rawData.ventas.forEach((item: unknown) => {
+        rawData.ventas.forEach((item: VentaItem) => {
           // Usar procesamiento robusto de fecha para evitar problemas de zona horaria
           const fechaStr = item.fecha_venta.split('T')[0] // Tomar solo la parte de fecha
-          const [año, mes, dia] = fechaStr.split('-').map(Number)
+          const [año, mes] = fechaStr.split('-').map(Number)
           const mesNumero = mes - 1 // Convertir de 1-12 a 0-11
           const mesNombre = MESES[mesNumero]
           const cert = item.certificacion
@@ -356,7 +380,7 @@ function DashboardPage() {
       ['W1.1', 'W5.2', 'W3.1', 'W3.2'].forEach(producto => {
         let stockAnterior = 0
 
-        MESES.forEach((mes, index) => {
+        MESES.forEach(mes => {
           // Asegurar que la estructura existe
           if (!processedData.stockInicial[producto]) {
             processedData.stockInicial[producto] = {}
@@ -534,6 +558,8 @@ function DashboardPage() {
               </select>
             </div>
             <div className="flex flex-wrap gap-2">
+              <ExcelExporter data={data} year={year} />
+              <div className="border-l border-gray-300 mx-2 h-8"></div>
               <button
                 onClick={() => setStockInicialOpen(true)}
                 className="treetracker-button-secondary px-3 py-2 rounded-lg font-medium text-sm"
@@ -607,28 +633,36 @@ function DashboardPage() {
           </div>
         </div>
 
-        <div className="treetracker-table">
-          <table className="w-full table-auto border-collapse">
+        <div className="treetracker-table rounded-lg overflow-hidden shadow-lg">
+          <table className="w-full table-auto border-collapse bg-white">
             <thead>
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                <th className="px-4 py-4 text-left font-bold text-white text-lg" style={{ backgroundColor: 'var(--dark-green)' }}>
                   Concepto
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                <th className="px-4 py-4 text-left font-bold text-white text-lg" style={{ backgroundColor: 'var(--dark-green)' }}>
                   Producto
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                <th className="px-4 py-4 text-left font-bold text-white text-lg" style={{ backgroundColor: 'var(--dark-green)' }}>
                   Certificación
                 </th>
                 {MESES.map(m => (
-                  <th key={m} className="px-3 py-3 text-center font-semibold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                  <th key={m} className="px-3 py-4 text-center font-bold text-white text-lg" style={{ backgroundColor: 'var(--dark-green)' }}>
                     {m}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* === STOCK INICIAL === */}
+              {/* === SECCIÓN MATERIA PRIMA (W1.1) === */}
+              <tr>
+                <td colSpan={3} className="px-4 py-3 font-bold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                  MATERIA PRIMA (W1.1)
+                </td>
+                {MESES.map(m => (
+                  <td key={m} className="px-3 py-3" style={{ backgroundColor: 'var(--dark-green)' }} />
+                ))}
+              </tr>
               <tr className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>
                   Stock Inicial
@@ -692,10 +726,18 @@ function DashboardPage() {
                 ))}
               </tr>
 
-              {/* === PRODUCCIÓN MADERA === */}
+              {/* === SECCIÓN MADERA (W5.2) === */}
+              <tr>
+                <td colSpan={3} className="px-4 py-3 font-bold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                  MADERA DIMENSIONADA (W5.2)
+                </td>
+                {MESES.map(m => (
+                  <td key={m} className="px-3 py-3" style={{ backgroundColor: 'var(--dark-green)' }} />
+                ))}
+              </tr>
               <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción Madera</td>
-                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
+                <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción</td>
+                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W5.2 Madera dimensionada</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
@@ -767,9 +809,27 @@ function DashboardPage() {
                 <td colSpan={15} className="h-4" style={{ backgroundColor: 'var(--light-brown)' }} />
               </tr>
 
-              {/* === PRODUCCIÓN ASTILLAS === */}
+              {/* === SECCIÓN SUBPRODUCTOS === */}
+              <tr>
+                <td colSpan={3} className="px-4 py-3 font-bold text-white" style={{ backgroundColor: 'var(--dark-green)' }}>
+                  SUBPRODUCTOS
+                </td>
+                {MESES.map(m => (
+                  <td key={m} className="px-3 py-3" style={{ backgroundColor: 'var(--dark-green)' }} />
+                ))}
+              </tr>
+
+              {/* Astillas W3.1 */}
+              <tr className="bg-gray-50">
+                <td colSpan={3} className="px-4 py-2 font-semibold" style={{ color: 'var(--dark-green)' }}>
+                  Astillas (W3.1)
+                </td>
+                {MESES.map(m => (
+                  <td key={m} className="px-3 py-2" />
+                ))}
+              </tr>
               <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción Astillas</td>
+                <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W3.1 Astillas pinus radiata</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
