@@ -77,7 +77,11 @@ out/
 build/
 dist/
 
-# Python
+# Python API - Ignorar toda la carpeta de la API
+/python-api/
+/python-api/**/*
+
+# Python general
 __pycache__/
 *.py[cod]
 *$py.class
