@@ -280,17 +280,7 @@ function DashboardPage() {
           }
         }
 
-        // Producción de astillas (W3.1)
-        if (item.producto_destino_codigo === 'W3.1') {
-          if (!processedData.produccionAstillas[mesNombre]) {
-            processedData.produccionAstillas[mesNombre] = 0
-          }
-          processedData.produccionAstillas[mesNombre] += parseFloat(item.volumen_destino_m3)
-
-          if (item.factor_rendimiento) {
-            processedData.rendimientoAstillas[mesNombre] = parseFloat(item.factor_rendimiento)
-          }
-        }
+        // Producción de astillas (W3.1) y aserrín (W3.2) se calculará después sumando las ventas
 
         // Producción de aserrín (W3.2)
         if (item.producto_destino_codigo === 'W3.2') {
@@ -462,6 +452,23 @@ function DashboardPage() {
         })
       })
 
+      // Calcular producción de astillas y aserrín (igual a las ventas totales del mes)
+      MESES.forEach(mes => {
+        // Producción de astillas = suma de todas las ventas de astillas del mes
+        let totalVentasAstillasMes = 0
+        Object.keys(processedData.ventasAstillas).forEach(cert => {
+          totalVentasAstillasMes += processedData.ventasAstillas[cert]?.[mes] || 0
+        })
+        processedData.produccionAstillas[mes] = totalVentasAstillasMes
+
+        // Producción de aserrín = suma de todas las ventas de aserrín del mes
+        let totalVentasAserrinMes = 0
+        Object.keys(processedData.ventasAserrin).forEach(cert => {
+          totalVentasAserrinMes += processedData.ventasAserrin[cert]?.[mes] || 0
+        })
+        processedData.produccionAserrin[mes] = totalVentasAserrinMes
+      })
+
       // Calcular factores de rendimiento automáticamente
       // Factor de Rendimiento = (Producción / Consumo) * 100
       MESES.forEach(mes => {
@@ -471,16 +478,26 @@ function DashboardPage() {
           processedData.rendimientoMadera[mes] = factor
         }
 
-        // Factor de rendimiento para astillas
-        if (processedData.produccionAstillas[mes] && processedData.consumo[mes]) {
-          const factor = (processedData.produccionAstillas[mes] / processedData.consumo[mes]) * 100
+        // Factor de rendimiento para astillas: suma de ventas / Consumo W1.1
+        let totalVentasAstillasMes = 0
+        Object.keys(processedData.ventasAstillas).forEach(cert => {
+          totalVentasAstillasMes += processedData.ventasAstillas[cert]?.[mes] || 0
+        })
+        if (totalVentasAstillasMes > 0 && processedData.consumo[mes]) {
+          const factor = (totalVentasAstillasMes / processedData.consumo[mes]) * 100
           processedData.rendimientoAstillas[mes] = factor
+          console.log(`📊 ${mes}: Rendimiento Astillas = ${totalVentasAstillasMes} / ${processedData.consumo[mes]} * 100 = ${factor.toFixed(2)}%`)
         }
 
-        // Factor de rendimiento para aserrín
-        if (processedData.produccionAserrin[mes] && processedData.consumo[mes]) {
-          const factor = (processedData.produccionAserrin[mes] / processedData.consumo[mes]) * 100
+        // Factor de rendimiento para aserrín: suma de ventas / Consumo W1.1
+        let totalVentasAserrinMes = 0
+        Object.keys(processedData.ventasAserrin).forEach(cert => {
+          totalVentasAserrinMes += processedData.ventasAserrin[cert]?.[mes] || 0
+        })
+        if (totalVentasAserrinMes > 0 && processedData.consumo[mes]) {
+          const factor = (totalVentasAserrinMes / processedData.consumo[mes]) * 100
           processedData.rendimientoAserrin[mes] = factor
+          console.log(`📊 ${mes}: Rendimiento Aserrín = ${totalVentasAserrinMes} / ${processedData.consumo[mes]} * 100 = ${factor.toFixed(2)}%`)
         }
       })
 
@@ -753,7 +770,7 @@ function DashboardPage() {
               {/* === PRODUCCIÓN ASTILLAS === */}
               <tr className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción Astillas</td>
-                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
+                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W3.1 Astillas pinus radiata</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
@@ -765,7 +782,7 @@ function DashboardPage() {
               {/* === FACTOR RENDIMIENTO ASTILLAS === */}
               <tr className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Factor Rendimiento</td>
-                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
+                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W3.1 Astillas pinus radiata</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>%</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
@@ -828,7 +845,7 @@ function DashboardPage() {
               {/* === PRODUCCIÓN ASERRÍN === */}
               <tr className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Producción Aserrín</td>
-                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
+                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W3.2 Aserrín pinus radiata</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
@@ -840,7 +857,7 @@ function DashboardPage() {
               {/* === FACTOR RENDIMIENTO ASERRÍN === */}
               <tr className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-gray-800 border-b" style={{ borderColor: 'var(--light-brown)' }}>Factor Rendimiento</td>
-                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>—</td>
+                <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>W3.2 Aserrín pinus radiata</td>
                 <td className="px-4 py-3 text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>%</td>
                 {MESES.map(m => (
                   <td key={m} className="px-3 py-3 text-right text-gray-700 border-b" style={{ borderColor: 'var(--light-brown)' }}>
